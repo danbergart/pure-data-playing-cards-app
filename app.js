@@ -716,18 +716,309 @@ function runCorruptMode(ctx) {
   setTimeout(corrupt, 500);
 }
 
-/* --- PLINKO MODE (placeholder - full build next) --- */
+/* --- PLINKO MODE --- */
+let plinkoHighScore = 0;
+
 function runPlinkoMode(ctx) {
-  ctx.clearRect(0, 0, W, H);
-  ctx.fillStyle = "#000";
-  ctx.fillRect(0, 0, W, H);
-  ctx.textAlign = "center";
-  ctx.fillStyle = "#00cc55";
-  ctx.font = `${Math.round(S(14))}px ui-monospace`;
-  ctx.fillText("PLINKO", W / 2, S(50));
-  ctx.fillStyle = "rgba(0,204,85,0.5)";
-  ctx.font = `${Math.round(S(10))}px ui-monospace`;
-  ctx.fillText("coming soon...", W / 2, S(80));
+  // Get card from last rendered or textarea
+  let card;
+  try {
+    const raw = ta.value.trim();
+    card = JSON.parse(raw);
+  } catch {
+    card = { rank: "7", suit: "clubs", type: "number" };
+  }
+
+  const rank = String(card.rank || "7").toLowerCase();
+  const suit = String(card.suit || "clubs").toLowerCase();
+  const color = suitColor(suit);
+
+  // Get pip positions (scaled) for this card
+  const layout = LAYOUTS[rank] || LAYOUTS["7"];
+  if (!layout || !layout.length) {
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0, 0, W, H);
+    ctx.textAlign = "center";
+    ctx.fillStyle = "#00cc55";
+    ctx.font = `${Math.round(S(12))}px ui-monospace`;
+    ctx.fillText("need a number card", W / 2, H / 2);
+    return;
+  }
+
+  // Centre the pegs like drawPipsCentered does
+  const xs = layout.map(([x]) => x);
+  const mid = (Math.min(...xs) + Math.max(...xs)) / 2;
+  const dx = W / 2 - mid;
+  const pegs = layout.map(([x, y]) => [x + dx, y]);
+
+  // Physics constants
+  const pegRadius = S(12);
+  const ballRadius = S(6);
+  const gravity = 0.15;
+  const bounce = 0.6;
+  const friction = 0.99;
+
+  // Scoring slots at the bottom
+  const slotCount = 7;
+  const slotWidth = W / slotCount;
+  const slotY = H - S(40);
+  const slotScores = [10, 25, 50, 100, 50, 25, 10];
+
+  // Launcher
+  const launcherX = W / 2;
+  const launcherY = S(20);
+
+  // Game state
+  let balls = [];
+  let ballsRemaining = 3;
+  let score = 0;
+  let animId = null;
+  let landed = [];
+
+  // Create drop button
+  let dropBtn = document.getElementById("plinkoDropBtn");
+  if (!dropBtn) {
+    dropBtn = document.createElement("button");
+    dropBtn.id = "plinkoDropBtn";
+    dropBtn.className = "btn";
+    dropBtn.style.borderColor = "#00cc55";
+    dropBtn.style.color = "#00cc55";
+    dropBtn.textContent = "DROP (3)";
+    const renderRow = renderBtn.parentElement;
+    renderRow.appendChild(dropBtn);
+  }
+  dropBtn.textContent = `DROP (${ballsRemaining})`;
+  dropBtn.disabled = false;
+  dropBtn.style.display = "inline-block";
+
+  // Remove old listener
+  const newBtn = dropBtn.cloneNode(true);
+  dropBtn.parentNode.replaceChild(newBtn, dropBtn);
+  dropBtn = newBtn;
+
+  dropBtn.addEventListener("click", () => {
+    if (ballsRemaining <= 0) return;
+    ballsRemaining--;
+    dropBtn.textContent = `DROP (${ballsRemaining})`;
+    if (ballsRemaining <= 0) dropBtn.disabled = true;
+
+    // Launch ball with slight random offset
+    const offset = (Math.random() - 0.5) * S(20);
+    balls.push({
+      x: launcherX + offset,
+      y: launcherY,
+      vx: (Math.random() - 0.5) * 1.5,
+      vy: 0,
+      active: true,
+      trail: [],
+    });
+  });
+
+  // Draw and animate
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = "#111";
+    ctx.fillRect(0, 0, W, H);
+
+    // Draw launcher mechanism
+    ctx.strokeStyle = "#444";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(launcherX - S(25), launcherY + S(5));
+    ctx.lineTo(launcherX + S(25), launcherY + S(5));
+    ctx.stroke();
+    // Launcher funnel
+    ctx.strokeStyle = "#666";
+    ctx.beginPath();
+    ctx.moveTo(launcherX - S(15), launcherY - S(10));
+    ctx.lineTo(launcherX - S(5), launcherY + S(5));
+    ctx.moveTo(launcherX + S(15), launcherY - S(10));
+    ctx.lineTo(launcherX + S(5), launcherY + S(5));
+    ctx.stroke();
+    // Spring
+    ctx.strokeStyle = "#00cc55";
+    ctx.lineWidth = 1.5;
+    for (let i = 0; i < 4; i++) {
+      const sy = launcherY - S(10) - i * S(4);
+      ctx.beginPath();
+      ctx.moveTo(launcherX - S(4), sy);
+      ctx.lineTo(launcherX + S(4), sy - S(2));
+      ctx.lineTo(launcherX - S(4), sy - S(4));
+      ctx.stroke();
+    }
+
+    // Draw pegs as suit symbols
+    pegs.forEach(([px, py]) => {
+      ctx.fillStyle = color;
+      if (isBrown(suit)) {
+        drawPooPip(ctx, px, py, pegRadius * 2);
+      } else {
+        ctx.font = `${Math.round(pegRadius * 2.2)}px ui-monospace`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(suitChar(suit), px, py);
+      }
+    });
+
+    // Draw slot dividers and scores
+    ctx.strokeStyle = "#333";
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= slotCount; i++) {
+      const sx = i * slotWidth;
+      ctx.beginPath();
+      ctx.moveTo(sx, slotY);
+      ctx.lineTo(sx, H);
+      ctx.stroke();
+    }
+    // Slot score labels
+    ctx.font = `${Math.round(S(8))}px ui-monospace`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    for (let i = 0; i < slotCount; i++) {
+      const isCenter = i === 3;
+      ctx.fillStyle = isCenter ? "#ff8800" : "#00cc55";
+      ctx.fillText(String(slotScores[i]), i * slotWidth + slotWidth / 2, slotY + (H - slotY) / 2);
+    }
+
+    // Draw walls
+    ctx.strokeStyle = "#333";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(0, launcherY + S(5));
+    ctx.lineTo(0, H);
+    ctx.moveTo(W, launcherY + S(5));
+    ctx.lineTo(W, H);
+    ctx.stroke();
+
+    // Update and draw balls
+    balls.forEach((ball) => {
+      if (!ball.active) return;
+
+      // Gravity
+      ball.vy += gravity;
+      ball.vx *= friction;
+
+      // Move
+      ball.x += ball.vx;
+      ball.y += ball.vy;
+
+      // Trail
+      ball.trail.push([ball.x, ball.y]);
+      if (ball.trail.length > 20) ball.trail.shift();
+
+      // Bounce off pegs
+      pegs.forEach(([px, py]) => {
+        const ddx = ball.x - px;
+        const ddy = ball.y - py;
+        const dist = Math.sqrt(ddx * ddx + ddy * ddy);
+        const minDist = pegRadius + ballRadius;
+        if (dist < minDist && dist > 0) {
+          // Push ball out
+          const nx = ddx / dist;
+          const ny = ddy / dist;
+          ball.x = px + nx * minDist;
+          ball.y = py + ny * minDist;
+          // Reflect velocity
+          const dot = ball.vx * nx + ball.vy * ny;
+          ball.vx -= 2 * dot * nx;
+          ball.vy -= 2 * dot * ny;
+          // Apply bounce dampening and add randomness
+          ball.vx *= bounce;
+          ball.vy *= bounce;
+          ball.vx += (Math.random() - 0.5) * 0.8;
+        }
+      });
+
+      // Wall bounces
+      if (ball.x < ballRadius) { ball.x = ballRadius; ball.vx = Math.abs(ball.vx) * bounce; }
+      if (ball.x > W - ballRadius) { ball.x = W - ballRadius; ball.vx = -Math.abs(ball.vx) * bounce; }
+
+      // Landed in slot
+      if (ball.y >= slotY) {
+        ball.active = false;
+        const slotIdx = Math.min(slotCount - 1, Math.max(0, Math.floor(ball.x / slotWidth)));
+        const pts = slotScores[slotIdx];
+        score += pts;
+        landed.push({ x: ball.x, y: slotY - S(5), pts, fade: 30 });
+      }
+
+      // Draw trail
+      ctx.strokeStyle = "rgba(0,204,85,0.15)";
+      ctx.lineWidth = ballRadius;
+      ctx.lineCap = "round";
+      if (ball.trail.length > 1) {
+        ctx.beginPath();
+        ctx.moveTo(ball.trail[0][0], ball.trail[0][1]);
+        ball.trail.forEach(([tx, ty]) => ctx.lineTo(tx, ty));
+        ctx.stroke();
+      }
+
+      // Draw ball
+      ctx.beginPath();
+      ctx.arc(ball.x, ball.y, ballRadius, 0, Math.PI * 2);
+      ctx.fillStyle = "#fff";
+      ctx.fill();
+      ctx.strokeStyle = "#00cc55";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    });
+
+    // Draw landing score popups
+    landed = landed.filter((l) => {
+      l.fade--;
+      if (l.fade <= 0) return false;
+      ctx.fillStyle = `rgba(255,136,0,${l.fade / 30})`;
+      ctx.font = `${Math.round(S(12))}px ui-monospace`;
+      ctx.textAlign = "center";
+      ctx.fillText(`+${l.pts}`, l.x, l.y - (30 - l.fade) * 1.5);
+      return true;
+    });
+
+    // Draw score display
+    ctx.fillStyle = "#00cc55";
+    ctx.font = `${Math.round(S(9))}px ui-monospace`;
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+    ctx.fillText(`SCORE: ${score}`, S(8), S(4));
+    ctx.textAlign = "right";
+    ctx.fillText(`HIGH: ${plinkoHighScore}`, W - S(8), S(4));
+
+    // Check if round is over
+    const allDone = ballsRemaining <= 0 && balls.every((b) => !b.active);
+    if (allDone && balls.length > 0) {
+      if (score > plinkoHighScore) plinkoHighScore = score;
+      ctx.fillStyle = "#ff8800";
+      ctx.font = `${Math.round(S(14))}px ui-monospace`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(`TOTAL: ${score}`, W / 2, H / 2 - S(10));
+      if (score >= plinkoHighScore && score > 0) {
+        ctx.fillStyle = "#00cc55";
+        ctx.font = `${Math.round(S(10))}px ui-monospace`;
+        ctx.fillText("NEW HIGH SCORE!", W / 2, H / 2 + S(14));
+      }
+      // Reset button
+      dropBtn.textContent = "AGAIN";
+      dropBtn.disabled = false;
+      const resetHandler = () => {
+        dropBtn.removeEventListener("click", resetHandler);
+        balls = [];
+        landed = [];
+        ballsRemaining = 3;
+        score = 0;
+        runPlinkoMode(ctx);
+      };
+      dropBtn.addEventListener("click", resetHandler);
+      return; // Stop animation
+    }
+
+    animId = requestAnimationFrame(draw);
+  }
+
+  // Cancel any existing animation
+  if (animId) cancelAnimationFrame(animId);
+  draw();
 }
 
 /* Main render */
