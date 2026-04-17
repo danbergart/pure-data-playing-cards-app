@@ -262,7 +262,7 @@ function drawPooPipsCentered(ctx, layout, color) {
   const dx = W / 2 - mid;
   ctx.save();
   ctx.fillStyle = color;
-  const pipSize = S(CARD_SCALE.pips) * 0.85;
+  const pipSize = S(CARD_SCALE.pips) * 0.5;
   layout.forEach(([x, y]) => drawPooPip(ctx, x + dx, y, pipSize));
   ctx.restore();
 }
