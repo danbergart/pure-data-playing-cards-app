@@ -782,17 +782,17 @@ function runPlinkoMode(ctx, card) {
 
   // Physics
   const pegRadius = S(12);
-  const ballRadius = S(5);
+  const ballRadius = S(7);
   const gravity = 0.18;
   const bounceFactor = 0.55;
   const friction = 0.995;
 
-  // Slots
+  // Slots — shifted up so suit-colored score labels can sit BENEATH the buckets
   const slotCount = 7;
   const slotWidth = W / slotCount;
-  const slotY = H - S(50);
+  const slotY = H - S(60);
   const slotScores = [10, 25, 50, 100, 50, 25, 10];
-  const slotFloor = H - S(8);
+  const slotFloor = H - S(28);
 
   // Launcher - moves left/right
   let launcherX = W / 2;
@@ -870,20 +870,17 @@ function runPlinkoMode(ctx, card) {
   });
 
   function draw() {
-    // Draw the card snapshot as a light background (card shows through)
+    // Draw the card snapshot as the background — no tint, card shows normally
     ctx.clearRect(0, 0, W, H);
     ctx.drawImage(cardSnapshot, 0, 0, W, H);
-    // Subtle translucent wash so pegs/balls read clearly against the card
-    ctx.fillStyle = "rgba(20, 20, 20, 0.25)";
-    ctx.fillRect(0, 0, W, H);
 
     // Move launcher
     launcherX += launcherDir;
     if (launcherX > W - S(30)) launcherDir = -Math.abs(launcherDir);
     if (launcherX < S(30)) launcherDir = Math.abs(launcherDir);
 
-    // Draw launcher
-    ctx.strokeStyle = "#555";
+    // Draw launcher — suit-colored
+    ctx.strokeStyle = color;
     ctx.lineWidth = 2;
     // Rail
     ctx.beginPath();
@@ -891,16 +888,19 @@ function runPlinkoMode(ctx, card) {
     ctx.lineTo(W - S(20), launcherY);
     ctx.stroke();
     // Carriage
-    ctx.fillStyle = "#333";
+    ctx.fillStyle = color;
     ctx.fillRect(launcherX - S(12), launcherY - S(4), S(24), S(8));
     // Nozzle
-    ctx.fillStyle = "#00cc55";
+    ctx.fillStyle = color;
     ctx.fillRect(launcherX - S(3), launcherY + S(2), S(6), S(10));
-    // Indicator dot
+    // Indicator dot (white so it stands out against the carriage)
     ctx.beginPath();
     ctx.arc(launcherX, launcherY, S(3), 0, Math.PI * 2);
-    ctx.fillStyle = "#ff8800";
+    ctx.fillStyle = "#fff";
     ctx.fill();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1;
+    ctx.stroke();
 
     // Draw pegs as suit symbols
     pegs.forEach(([px, py]) => {
@@ -915,50 +915,50 @@ function runPlinkoMode(ctx, card) {
       }
     });
 
-    // Draw slot dividers
-    ctx.strokeStyle = "#333";
+    // Draw slot dividers — stop at the floor so score labels beneath sit clean
+    ctx.strokeStyle = color;
     ctx.lineWidth = 1.5;
     for (let i = 0; i <= slotCount; i++) {
       const sx = i * slotWidth;
       ctx.beginPath();
       ctx.moveTo(sx, slotY);
-      ctx.lineTo(sx, H);
+      ctx.lineTo(sx, slotFloor);
       ctx.stroke();
     }
     // Slot floor
-    ctx.strokeStyle = "#444";
+    ctx.strokeStyle = color;
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(0, slotFloor);
     ctx.lineTo(W, slotFloor);
     ctx.stroke();
-    // Slot labels — large, positioned just above slot area so landed balls don't cover them
-    ctx.font = `bold ${Math.round(S(16))}px ui-monospace`;
+    // Slot labels — large, BENEATH the buckets, suit-colored
+    ctx.font = `bold ${Math.round(S(14))}px ui-monospace`;
     ctx.textAlign = "center";
-    ctx.textBaseline = "bottom";
+    ctx.textBaseline = "top";
     for (let i = 0; i < slotCount; i++) {
-      ctx.fillStyle = i === 3 ? "#ff8800" : "#00cc55";
-      ctx.fillText(String(slotScores[i]), i * slotWidth + slotWidth / 2, slotY - S(4));
+      ctx.fillStyle = color;
+      ctx.fillText(String(slotScores[i]), i * slotWidth + slotWidth / 2, slotFloor + S(4));
     }
 
-    // Draw walls
-    ctx.strokeStyle = "#333";
+    // Draw walls — only down to the bucket floor so suit-colored labels below sit clean
+    ctx.strokeStyle = color;
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(0, launcherY);
-    ctx.lineTo(0, H);
+    ctx.lineTo(0, slotFloor);
     ctx.moveTo(W, launcherY);
-    ctx.lineTo(W, H);
+    ctx.lineTo(W, slotFloor);
     ctx.stroke();
 
-    // Draw landed balls (sitting in slots)
+    // Draw landed balls (sitting in slots) — suit-colored
     st.landed.forEach((lb) => {
       ctx.beginPath();
       ctx.arc(lb.x, lb.y, ballRadius, 0, Math.PI * 2);
-      ctx.fillStyle = "#888";
+      ctx.fillStyle = color;
       ctx.fill();
-      ctx.strokeStyle = "#aaa";
-      ctx.lineWidth = 0.5;
+      ctx.strokeStyle = "#fff";
+      ctx.lineWidth = 1;
       ctx.stroke();
     });
 
@@ -1028,25 +1028,27 @@ function runPlinkoMode(ctx, card) {
         ctx.stroke();
       }
 
-      // Draw ball
+      // Draw ball — suit-colored
       ctx.beginPath();
       ctx.arc(ball.x, ball.y, ballRadius, 0, Math.PI * 2);
-      ctx.fillStyle = "#fff";
+      ctx.fillStyle = color;
       ctx.fill();
-      ctx.strokeStyle = "#00cc55";
-      ctx.lineWidth = 1;
+      ctx.strokeStyle = "#fff";
+      ctx.lineWidth = 1.5;
       ctx.stroke();
     });
 
-    // Score popups
+    // Score popups — suit-colored
     st.popups = st.popups.filter((p) => {
       p.fade--;
       if (p.fade <= 0) return false;
-      ctx.fillStyle = `rgba(255,136,0,${p.fade / 40})`;
-      ctx.font = `${Math.round(S(12))}px ui-monospace`;
+      ctx.globalAlpha = p.fade / 40;
+      ctx.fillStyle = color;
+      ctx.font = `bold ${Math.round(S(12))}px ui-monospace`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillText(`+${p.pts}`, p.x, p.y - (40 - p.fade) * 1.2);
+      ctx.globalAlpha = 1;
       return true;
     });
 
