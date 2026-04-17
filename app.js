@@ -283,6 +283,72 @@ function drawCredits(ctx) {
   ctx.fillText("// Dan Berg 2026", W / 2, H - S(24));
 }
 
+/* ========= SYSTEM PATCH ========= */
+let patchActivated = false;
+
+function drawPatchActivation(ctx) {
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = "#000";
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.textAlign = "center";
+  const green = "#00cc55";
+  const orange = "#ff8800";
+  const dim = "rgba(0,204,85,0.4)";
+
+  if (!patchActivated) {
+    // First time - activation sequence
+    patchActivated = true;
+
+    ctx.fillStyle = orange;
+    ctx.font = `${Math.round(S(14))}px ui-monospace`;
+    ctx.fillText("SYSTEM PATCH v1.1", W / 2, S(50));
+
+    ctx.fillStyle = green;
+    ctx.font = `${Math.round(S(10))}px ui-monospace`;
+    let y = S(90);
+    const lines = [
+      "$ applying patch...",
+      "",
+      "> card_id: PATCH-001",
+      "> rel-chan: first-edition",
+      "> scope: feature-unlock",
+      "",
+      "verifying checksum...",
+      "4fva9dc2b8e19a [ OK ]",
+      "",
+      "installing features:",
+      "  + hidden_mode",
+      "  + r-override",
+      "  + secret_payload",
+      "",
+    ];
+    lines.forEach((line) => {
+      ctx.fillText(line, W / 2, y);
+      y += S(16);
+    });
+
+    ctx.fillStyle = orange;
+    ctx.font = `${Math.round(S(12))}px ui-monospace`;
+    ctx.fillText("PATCH APPLIED", W / 2, y + S(10));
+
+    ctx.fillStyle = dim;
+    ctx.font = `${Math.round(S(9))}px ui-monospace`;
+    ctx.fillText("hidden features unlocked", W / 2, y + S(34));
+  } else {
+    // Already activated
+    ctx.fillStyle = dim;
+    ctx.font = `${Math.round(S(12))}px ui-monospace`;
+    ctx.fillText("SYSTEM PATCH v1.1", W / 2, S(50));
+    ctx.fillStyle = green;
+    ctx.font = `${Math.round(S(10))}px ui-monospace`;
+    ctx.fillText("patch already applied", W / 2, S(80));
+    ctx.fillStyle = dim;
+    ctx.font = `${Math.round(S(9))}px ui-monospace`;
+    ctx.fillText("all features active", W / 2, S(104));
+  }
+}
+
 /* Main render */
 function renderCard(json) {
   const card = JSON.parse(json);
@@ -297,6 +363,10 @@ function renderCard(json) {
       inset: S(10),
       color: "#0b2f66",
     });
+    return;
+  }
+  if (String(card.type).toLowerCase() === "system_patch") {
+    drawPatchActivation(ctx);
     return;
   }
   if (card.type && String(card.type).toLowerCase().startsWith("joker")) {
@@ -576,6 +646,39 @@ function trySnapToDeck(text) {
   const suit = suits.find(
     (s) => t.includes(`"${s}"`) || t.includes(`:${s}`) || t.includes(` ${s}`)
   );
+
+  // System Patch card detection (fuzzy - ~10% OCR tolerance)
+  // Key tokens from the printed card that OCR should pick up
+  const patchTokens = [
+    "system_patch", "system patch",
+    "patch-001", "patch 001",
+    "feature-unlock", "feature unlock",
+    "hidden_mode", "hidden mode",
+    "secret_payload", "secret payload",
+    "4fva9dc2b8e19a",
+    "rel-chan", "rel chan",
+    "first-edition", "first edition",
+    "r-override", "r override",
+  ];
+  // Count how many tokens appear in the scanned text
+  const patchHits = patchTokens.filter((tok) => t.includes(tok)).length;
+  // If 3+ tokens match (~20% of the list), it's the patch card
+  if (patchHits >= 3 || t.includes("system_patch") || t.includes("system patch")) {
+    return JSON.stringify({
+      type: "system_patch",
+      version: "1.1",
+      card_id: "PATCH-001",
+      "rel-chan": "first-edition",
+      applies_to: "renderer",
+      scope: "feature-unlock",
+      features: {
+        hidden_mode: true,
+        "r-override": "experiment",
+        secret_payload: "unlock",
+      },
+      checksum: "4fva9dc2b8e19a",
+    }, null, 2);
+  }
 
   // Joker / Back shortcuts
   if (t.includes("joker") || t.includes("error") || t.includes("hacked")) {
