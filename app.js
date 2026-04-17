@@ -15,13 +15,42 @@ const W = CANVAS.width; // 360
 const H = CANVAS.height; // 528
 
 const suitChar = (s) =>
-  ({ clubs: "♣", spades: "♠", hearts: "♥", diamonds: "♦" }[
+  ({ clubs: "♣", spades: "♠", hearts: "♥", diamonds: "♦", poo: "💩" }[
     (s || "").toLowerCase()
   ] || "?");
+
+const isBrown = (s) => (s || "").toLowerCase() === "poo";
 
 const isRed = (s) =>
   (s || "").toLowerCase() === "hearts" ||
   (s || "").toLowerCase() === "diamonds";
+
+const suitColor = (s) => {
+  if (isBrown(s)) return "#6B3410";
+  if (isRed(s)) return "red";
+  return "black";
+};
+
+/* Poo pip - drawn as a canvas path instead of text character */
+/* Shape based on classic poo silhouette - three stacked blobs with swirl */
+function drawPooPip(ctx, cx, cy, size) {
+  ctx.save();
+  ctx.translate(cx, cy);
+  const sc = size / 50;
+  ctx.scale(sc, sc);
+  ctx.translate(-50, -50);
+  ctx.beginPath();
+  ctx.moveTo(20.684, 100);
+  ctx.bezierCurveTo(-6.617, 100, -8.639, 62, 19.673, 60);
+  ctx.bezierCurveTo(10.573, 51, 15.629, 34, 29.784, 34);
+  ctx.bezierCurveTo(14.617, 11, 47.986, 32, 47.986, 0);
+  ctx.bezierCurveTo(63.153, 9, 76.298, 23, 69.22, 34);
+  ctx.bezierCurveTo(83.376, 34, 89.444, 51, 79.332, 60);
+  ctx.bezierCurveTo(106.633, 62, 105.621, 100, 78.32, 100);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
 
 /* Base 240x336 grid → scale up to canvas */
 const BASE_W = 240,
@@ -179,13 +208,17 @@ function drawCornerPair(ctx, rankText, suit, color, pad, cornerFont, suitFont) {
   ctx.font = cornerFont;
   ctx.fillText(rankText, pad, pad);
   const rankW = ctx.measureText(rankText).width;
-  ctx.font = suitFont;
-  ctx.textAlign = "center";
-  ctx.fillText(
-    suitChar(suit),
-    pad + rankW / 2,
-    pad + parseInt(cornerFont, 10) * 0.95
-  );
+  if (isBrown(suit)) {
+    drawPooPip(ctx, pad + rankW / 2, pad + parseInt(cornerFont, 10) * 1.3, S(CARD_SCALE.cornerSuit) * 0.9);
+  } else {
+    ctx.font = suitFont;
+    ctx.textAlign = "center";
+    ctx.fillText(
+      suitChar(suit),
+      pad + rankW / 2,
+      pad + parseInt(cornerFont, 10) * 0.95
+    );
+  }
   ctx.restore();
 
   // bottom-right (rotated)
@@ -198,9 +231,13 @@ function drawCornerPair(ctx, rankText, suit, color, pad, cornerFont, suitFont) {
   ctx.font = cornerFont;
   ctx.fillText(rankText, 0, 0);
   const rankW2 = ctx.measureText(rankText).width;
-  ctx.font = suitFont;
-  ctx.textAlign = "center";
-  ctx.fillText(suitChar(suit), rankW2 / 2, parseInt(cornerFont, 10) * 0.95);
+  if (isBrown(suit)) {
+    drawPooPip(ctx, rankW2 / 2, parseInt(cornerFont, 10) * 1.3, S(CARD_SCALE.cornerSuit) * 0.9);
+  } else {
+    ctx.font = suitFont;
+    ctx.textAlign = "center";
+    ctx.fillText(suitChar(suit), rankW2 / 2, parseInt(cornerFont, 10) * 0.95);
+  }
   ctx.restore();
 }
 
@@ -215,6 +252,18 @@ function drawPipsCentered(ctx, layout, suit, color, pipFont) {
   ctx.textBaseline = "middle";
   ctx.font = pipFont;
   layout.forEach(([x, y]) => ctx.fillText(suitChar(suit), x + dx, y));
+  ctx.restore();
+}
+
+function drawPooPipsCentered(ctx, layout, color) {
+  if (!layout || !layout.length) return;
+  const xs = layout.map(([x]) => x);
+  const mid = (Math.min(...xs) + Math.max(...xs)) / 2;
+  const dx = W / 2 - mid;
+  ctx.save();
+  ctx.fillStyle = color;
+  const pipSize = S(CARD_SCALE.pips) * 0.85;
+  layout.forEach(([x, y]) => drawPooPip(ctx, x + dx, y, pipSize));
   ctx.restore();
 }
 
@@ -390,7 +439,7 @@ function renderCard(json) {
 }
 
 function drawNumber(ctx, rank, suit) {
-  const color = isRed(suit) ? "red" : "black";
+  const color = suitColor(suit);
   const cornerFont = `${Math.round(S(CARD_SCALE.corner))}px ui-monospace`;
   const suitSmall = `${Math.round(S(CARD_SCALE.cornerSuit))}px ui-monospace`;
   const pipFont = `${Math.round(S(CARD_SCALE.pips))}px ui-monospace`;
@@ -404,11 +453,15 @@ function drawNumber(ctx, rank, suit) {
 
   const key = String(rank).toLowerCase();
   const layout = LAYOUTS[key];
-  drawPipsCentered(ctx, layout, suit, color, pipFont);
+  if (isBrown(suit)) {
+    drawPooPipsCentered(ctx, layout, color);
+  } else {
+    drawPipsCentered(ctx, layout, suit, color, pipFont);
+  }
 }
 
 function drawFace(ctx, rank, suit) {
-  const color = isRed(suit) ? "red" : "black";
+  const color = suitColor(suit);
   const cornerFont = `${Math.round(S(CARD_SCALE.corner))}px ui-monospace`;
   const suitSmall = `${Math.round(S(CARD_SCALE.cornerSuit))}px ui-monospace`;
   const centerFont = `${Math.round(S(CARD_SCALE.faceCenter))}px ui-monospace`;
