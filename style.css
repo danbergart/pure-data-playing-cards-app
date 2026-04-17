@@ -41,6 +41,10 @@ body {
   align-items: center;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 .gap {
   gap: 12px;
 }

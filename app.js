@@ -749,6 +749,14 @@ function runPlinkoMode(ctx, card) {
   // Stop any existing game
   if (plinkoAnimId) { cancelAnimationFrame(plinkoAnimId); plinkoAnimId = null; }
 
+  // Make sure the card is currently rendered on the canvas, then snapshot it
+  // so we can show it behind the Plinko playfield each frame.
+  try { renderCard(JSON.stringify(card)); } catch {}
+  const cardSnapshot = document.createElement("canvas");
+  cardSnapshot.width = CANVAS.width;
+  cardSnapshot.height = CANVAS.height;
+  cardSnapshot.getContext("2d").drawImage(CANVAS, 0, 0);
+
   const rank = String(card.rank || "7").toLowerCase();
   const suit = String(card.suit || "clubs").toLowerCase();
   const color = suitColor(suit);
@@ -862,8 +870,11 @@ function runPlinkoMode(ctx, card) {
   });
 
   function draw() {
+    // Draw the card snapshot as a light background (card shows through)
     ctx.clearRect(0, 0, W, H);
-    ctx.fillStyle = "#111";
+    ctx.drawImage(cardSnapshot, 0, 0, W, H);
+    // Subtle translucent wash so pegs/balls read clearly against the card
+    ctx.fillStyle = "rgba(20, 20, 20, 0.25)";
     ctx.fillRect(0, 0, W, H);
 
     // Move launcher
