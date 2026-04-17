@@ -539,9 +539,13 @@ function runAsciiMode(ctx) {
   const sChar = ({ clubs: "C", spades: "S", hearts: "H", diamonds: "D", poo: "P" })[suit] || "?";
   const pip = ({ clubs: "%", spades: "^", hearts: "v", diamonds: "<>", poo: "@" })[suit] || "?";
 
-  // Card dimensions in characters
-  const cols = 27;
-  const rows = 35;
+  // Card dimensions in characters - wider to fill canvas
+  const cols = 21;
+  const rows = 29;
+
+  // Calculate font size to fill the canvas
+  const fontSize = Math.floor(Math.min(W / (cols * 0.6), H / (rows * 1.3)));
+  const lineHeight = fontSize * 1.15;
 
   // Build grid
   const grid = [];
@@ -624,9 +628,7 @@ function runAsciiMode(ctx) {
   // Bottom border
   grid.push("+" + "-".repeat(cols - 2) + "+");
 
-  // Calculate font size to fill the canvas
-  const fontSize = Math.floor(Math.min(W / (cols * 0.62), H / (grid.length * 1.25)));
-  const lineHeight = fontSize * 1.2;
+  // Draw the ASCII art
   const totalHeight = grid.length * lineHeight;
   const startY = (H - totalHeight) / 2 + fontSize;
 
