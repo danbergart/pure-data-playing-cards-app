@@ -335,57 +335,104 @@ function drawCredits(ctx) {
 /* ========= SYSTEM PATCH ========= */
 let patchActivated = false;
 
+function runGlitchEffect(ctx, callback) {
+  let frame = 0;
+  const totalFrames = 30;
+  const glitch = () => {
+    if (frame >= totalFrames) {
+      callback();
+      return;
+    }
+    // Save current canvas
+    const imgData = ctx.getImageData(0, 0, W, H);
+    // Random horizontal slices
+    for (let i = 0; i < 5; i++) {
+      const y = Math.floor(Math.random() * H);
+      const h = Math.floor(Math.random() * 20) + 5;
+      const shift = Math.floor(Math.random() * 40) - 20;
+      const slice = ctx.getImageData(0, y, W, h);
+      ctx.putImageData(slice, shift, y);
+    }
+    // Random colour channel corruption
+    const d = ctx.getImageData(0, 0, W, H);
+    for (let i = 0; i < 800; i++) {
+      const px = Math.floor(Math.random() * d.data.length / 4) * 4;
+      const ch = Math.floor(Math.random() * 3);
+      d.data[px + ch] = Math.floor(Math.random() * 256);
+    }
+    ctx.putImageData(d, 0, 0);
+    // Flash bars
+    ctx.fillStyle = `rgba(0,255,0,${Math.random() * 0.3})`;
+    ctx.fillRect(0, Math.random() * H, W, 2);
+    frame++;
+    requestAnimationFrame(glitch);
+  };
+  glitch();
+}
+
 function drawPatchActivation(ctx) {
   ctx.clearRect(0, 0, W, H);
   ctx.fillStyle = "#000";
   ctx.fillRect(0, 0, W, H);
 
-  ctx.textAlign = "center";
   const green = "#00cc55";
   const orange = "#ff8800";
   const dim = "rgba(0,204,85,0.4)";
 
   if (!patchActivated) {
-    // First time - activation sequence
     patchActivated = true;
 
-    ctx.fillStyle = orange;
-    ctx.font = `${Math.round(S(14))}px ui-monospace`;
-    ctx.fillText("SYSTEM PATCH v1.1", W / 2, S(50));
+    // Run glitch first, then show activation screen
+    runGlitchEffect(ctx, () => {
+      ctx.clearRect(0, 0, W, H);
+      ctx.fillStyle = "#000";
+      ctx.fillRect(0, 0, W, H);
+      ctx.textAlign = "center";
 
-    ctx.fillStyle = green;
-    ctx.font = `${Math.round(S(10))}px ui-monospace`;
-    let y = S(90);
-    const lines = [
-      "$ applying patch...",
-      "",
-      "> card_id: PATCH-001",
-      "> rel-chan: first-edition",
-      "> scope: feature-unlock",
-      "",
-      "verifying checksum...",
-      "4fva9dc2b8e19a [ OK ]",
-      "",
-      "installing features:",
-      "  + hidden_mode",
-      "  + r-override",
-      "  + secret_payload",
-      "",
-    ];
-    lines.forEach((line) => {
-      ctx.fillText(line, W / 2, y);
+      ctx.fillStyle = orange;
+      ctx.font = `${Math.round(S(16))}px ui-monospace`;
+      ctx.fillText("SYSTEM PATCHED!", W / 2, S(50));
+
+      ctx.fillStyle = green;
+      ctx.font = `${Math.round(S(10))}px ui-monospace`;
+      let y = S(90);
+      const lines = [
+        "$ patch v1.1 applied",
+        "",
+        "> verifying 4fva9dc2b8e19a",
+        "> checksum [ OK ]",
+        "",
+        "new toys unlocked:",
+        "",
+      ];
+      lines.forEach((line) => {
+        ctx.fillText(line, W / 2, y);
+        y += S(16);
+      });
+
+      // Toy list
+      ctx.fillStyle = orange;
+      ctx.font = `${Math.round(S(11))}px ui-monospace`;
+      const toys = [
+        '+ "ascii" - text art mode',
+        '+ "corrupt" - data decay',
+        '+ "plinko" - pip pinball',
+      ];
+      toys.forEach((toy) => {
+        ctx.fillText(toy, W / 2, y);
+        y += S(20);
+      });
+
       y += S(16);
+      ctx.fillStyle = dim;
+      ctx.font = `${Math.round(S(9))}px ui-monospace`;
+      ctx.fillText("type a toy name and hit render", W / 2, y);
+
+      // Show toy buttons
+      showToyButtons();
     });
-
-    ctx.fillStyle = orange;
-    ctx.font = `${Math.round(S(12))}px ui-monospace`;
-    ctx.fillText("PATCH APPLIED", W / 2, y + S(10));
-
-    ctx.fillStyle = dim;
-    ctx.font = `${Math.round(S(9))}px ui-monospace`;
-    ctx.fillText("hidden features unlocked", W / 2, y + S(34));
   } else {
-    // Already activated
+    ctx.textAlign = "center";
     ctx.fillStyle = dim;
     ctx.font = `${Math.round(S(12))}px ui-monospace`;
     ctx.fillText("SYSTEM PATCH v1.1", W / 2, S(50));
@@ -394,8 +441,223 @@ function drawPatchActivation(ctx) {
     ctx.fillText("patch already applied", W / 2, S(80));
     ctx.fillStyle = dim;
     ctx.font = `${Math.round(S(9))}px ui-monospace`;
-    ctx.fillText("all features active", W / 2, S(104));
+    ctx.fillText("toys: ascii / corrupt / plinko", W / 2, S(104));
   }
+}
+
+/* ========= TOY BUTTONS (appear after patch) ========= */
+let toyBtnsAdded = false;
+function showToyButtons() {
+  if (toyBtnsAdded) return;
+  toyBtnsAdded = true;
+  const container = document.querySelector(".row.center.gap") || document.querySelector(".row.center");
+  if (!container) return;
+  const toyNames = ["ascii", "corrupt", "plinko"];
+  toyNames.forEach((name) => {
+    const btn = document.createElement("button");
+    btn.className = "btn";
+    btn.textContent = name;
+    btn.style.borderColor = "#00cc55";
+    btn.style.color = "#00cc55";
+    btn.addEventListener("click", () => {
+      ta.value = name;
+      runToy(name);
+    });
+    container.appendChild(btn);
+  });
+}
+
+/* ========= TOYS ========= */
+function runToy(name) {
+  const ctx = CANVAS.getContext("2d");
+  switch (name) {
+    case "ascii":
+      runAsciiMode(ctx);
+      break;
+    case "corrupt":
+      runCorruptMode(ctx);
+      break;
+    case "plinko":
+      runPlinkoMode(ctx);
+      break;
+    default:
+      return false;
+  }
+  return true;
+}
+
+/* --- ASCII MODE --- */
+function runAsciiMode(ctx) {
+  // Get current card from textarea, or use a default
+  let card;
+  const raw = ta.value.trim();
+  try {
+    card = JSON.parse(raw);
+  } catch {
+    card = { rank: "7", suit: "clubs", type: "number" };
+  }
+
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = "#000";
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.textAlign = "left";
+  ctx.fillStyle = "#00cc55";
+  ctx.font = `${Math.round(S(7))}px ui-monospace`;
+
+  const rank = String(card.rank || "?").toUpperCase();
+  const suit = String(card.suit || "?").toLowerCase();
+  const sChar = ({ clubs: "C", spades: "S", hearts: "H", diamonds: "D", poo: "P" })[suit] || "?";
+  const pip = ({ clubs: "%", spades: "^", hearts: "<3", diamonds: "<>", poo: "@" })[suit] || "?";
+
+  // Build ASCII card
+  const lines = [];
+  lines.push("+-------------------+");
+  lines.push(`| ${rank.padEnd(2)}              ${sChar} |`);
+  lines.push("|                   |");
+
+  if (card.type === "face") {
+    const faceArt = {
+      jack:  ["   ___   ", "  |o o|  ", "  | - |  ", "  |___|  ", "   | |   ", "   |_|   "],
+      queen: ["   ___   ", "  |o o|  ", "  | v |  ", "  |___|  ", "  /| |\\  ", " /_|_|\\ "],
+      king:  ["   ___   ", "  |o o|  ", "  | = |  ", "  |___|  ", " /|| ||\\ ", "/_||_||\\_"],
+    };
+    const art = faceArt[rank.toLowerCase()] || faceArt.jack;
+    lines.push("|                   |");
+    art.forEach((l) => lines.push(`|    ${l.padEnd(15)}|`));
+    lines.push("|                   |");
+  } else if (card.type === "back") {
+    for (let i = 0; i < 8; i++) {
+      const row = i % 2 === 0 ? "x . x . x . x . x" : ". x . x . x . x .";
+      lines.push(`| ${row} |`);
+    }
+  } else {
+    // Number card - show pips in a pattern
+    const count = parseInt(card.rank) || 1;
+    const grid = [];
+    for (let i = 0; i < 7; i++) grid.push("                   ");
+    const positions = {
+      1: [[3, 9]], 2: [[1, 9], [5, 9]], 3: [[1, 9], [3, 9], [5, 9]],
+      4: [[1, 5], [1, 13], [5, 5], [5, 13]],
+      5: [[1, 5], [1, 13], [3, 9], [5, 5], [5, 13]],
+      6: [[1, 5], [1, 13], [3, 5], [3, 13], [5, 5], [5, 13]],
+      7: [[1, 5], [1, 13], [2, 9], [3, 5], [3, 13], [5, 5], [5, 13]],
+      8: [[1, 5], [1, 13], [2, 9], [3, 5], [3, 13], [4, 9], [5, 5], [5, 13]],
+      9: [[1, 5], [1, 13], [2, 5], [2, 13], [3, 9], [4, 5], [4, 13], [5, 5], [5, 13]],
+      10: [[0, 5], [0, 13], [1, 9], [2, 5], [2, 13], [4, 5], [4, 13], [5, 9], [6, 5], [6, 13]],
+    };
+    const pos = positions[count] || positions[1];
+    const gridChars = grid.map((r) => r.split(""));
+    pos.forEach(([r, c]) => {
+      const p = pip.length > 1 ? pip : pip;
+      if (r < gridChars.length && c < gridChars[r].length) {
+        gridChars[r][c] = p[0];
+        if (p.length > 1 && c + 1 < gridChars[r].length) gridChars[r][c + 1] = p[1];
+      }
+    });
+    gridChars.forEach((row) => lines.push(`| ${row.join("")} |`));
+  }
+
+  lines.push("|                   |");
+  lines.push(`| ${sChar}              ${rank.padStart(2)} |`);
+  lines.push("+-------------------+");
+
+  // Draw the ASCII art
+  const lineHeight = S(11);
+  const startY = (H - lines.length * lineHeight) / 2;
+  const startX = S(40);
+  lines.forEach((line, i) => {
+    ctx.fillText(line, startX, startY + i * lineHeight);
+  });
+}
+
+/* --- CORRUPT MODE --- */
+function runCorruptMode(ctx) {
+  // Get current card from textarea
+  let json = ta.value.trim();
+  try {
+    JSON.parse(json);
+  } catch {
+    json = JSON.stringify({ rank: "7", suit: "clubs", type: "number" });
+  }
+
+  // First render the card normally
+  renderCard(json);
+
+  // Then progressively corrupt it
+  let step = 0;
+  const maxSteps = 60;
+  const corrupt = () => {
+    if (step >= maxSteps) return;
+
+    const imgData = ctx.getImageData(0, 0, W, H);
+    const d = imgData.data;
+
+    // Increasing corruption per step
+    const intensity = Math.floor(step * 3);
+
+    // Pixel corruption
+    for (let i = 0; i < intensity * 10; i++) {
+      const px = Math.floor(Math.random() * d.length / 4) * 4;
+      const ch = Math.floor(Math.random() * 3);
+      d[px + ch] = (d[px + ch] + Math.floor(Math.random() * 80) - 40) & 255;
+    }
+
+    // Block displacement
+    for (let i = 0; i < Math.floor(intensity / 5); i++) {
+      const sy = Math.floor(Math.random() * H);
+      const sh = Math.floor(Math.random() * 10) + 2;
+      const shift = Math.floor(Math.random() * intensity) - intensity / 2;
+      const slice = ctx.getImageData(0, sy, W, Math.min(sh, H - sy));
+      ctx.putImageData(imgData, 0, 0);
+      ctx.putImageData(slice, shift, sy);
+    }
+
+    ctx.putImageData(imgData, 0, 0);
+
+    // Scan lines
+    if (step > 20) {
+      ctx.fillStyle = `rgba(0,0,0,${Math.random() * 0.15})`;
+      for (let y = 0; y < H; y += 4) {
+        ctx.fillRect(0, y, W, 1);
+      }
+    }
+
+    // Data overlay - corrupted text appears
+    if (step > 30) {
+      ctx.fillStyle = `rgba(0,200,80,${Math.random() * 0.6})`;
+      ctx.font = `${Math.round(S(8))}px ui-monospace`;
+      ctx.textAlign = "left";
+      for (let i = 0; i < Math.floor(step / 10); i++) {
+        const chars = "0123456789abcdef{}:\",.nullundefined";
+        let garble = "";
+        for (let c = 0; c < Math.floor(Math.random() * 20) + 5; c++) {
+          garble += chars[Math.floor(Math.random() * chars.length)];
+        }
+        ctx.fillText(garble, Math.random() * W * 0.8, Math.random() * H);
+      }
+    }
+
+    step++;
+    setTimeout(corrupt, 80);
+  };
+
+  // Start corruption after a brief pause so the card renders first
+  setTimeout(corrupt, 500);
+}
+
+/* --- PLINKO MODE (placeholder - full build next) --- */
+function runPlinkoMode(ctx) {
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = "#000";
+  ctx.fillRect(0, 0, W, H);
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#00cc55";
+  ctx.font = `${Math.round(S(14))}px ui-monospace`;
+  ctx.fillText("PLINKO", W / 2, S(50));
+  ctx.fillStyle = "rgba(0,204,85,0.5)";
+  ctx.font = `${Math.round(S(10))}px ui-monospace`;
+  ctx.fillText("coming soon...", W / 2, S(80));
 }
 
 /* Main render */
@@ -783,8 +1045,16 @@ async function processImageBase64(b64) {
   const data = await res.json();
   const snapped = trySnapToDeck(normalizeScanned(String(data.text || "")));
 
-  // Put into editor (single textarea → no double text)
+  // Put into editor
   ta.value = snapped;
+
+  // Auto-render patch card (no click needed)
+  try {
+    const card = JSON.parse(snapped);
+    if (String(card.type).toLowerCase() === "system_patch") {
+      renderCard(snapped);
+    }
+  } catch {}
 }
 
 /* ========= UI WIRES ========= */
@@ -797,6 +1067,15 @@ renderBtn.addEventListener("click", () => {
     if (json.toLowerCase() === "credits") {
       drawCredits(CANVAS.getContext("2d"));
       return;
+    }
+
+    // Toys (only if patch activated)
+    if (patchActivated) {
+      const cmd = json.toLowerCase();
+      if (["ascii", "corrupt", "plinko"].includes(cmd)) {
+        runToy(cmd);
+        return;
+      }
     }
 
     renderCard(json);
