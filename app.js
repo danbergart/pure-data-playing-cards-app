@@ -481,44 +481,43 @@ function drawPatchActivation(ctx) {
 
 /* ========= TOY BUTTONS (appear after patch) ========= */
 let toyBtnsAdded = false;
+let plinkoMode = false;
+
 function showToyButtons() {
   if (toyBtnsAdded) return;
   toyBtnsAdded = true;
-  const container = document.querySelector(".row.center.gap") || document.querySelector(".row.center");
-  if (!container) return;
-  const toyNames = ["ascii", "corrupt", "plinko"];
-  toyNames.forEach((name) => {
-    const btn = document.createElement("button");
-    btn.className = "btn";
-    btn.textContent = name;
-    btn.style.borderColor = "#00cc55";
-    btn.style.color = "#00cc55";
-    btn.addEventListener("click", () => {
-      ta.value = name;
-      runToy(name);
-    });
-    container.appendChild(btn);
+
+  // Add plinko toggle next to render button
+  const renderRow = renderBtn.parentElement;
+
+  const plinkoToggle = document.createElement("button");
+  plinkoToggle.id = "plinkoToggle";
+  plinkoToggle.className = "btn";
+  plinkoToggle.textContent = "PLINKO: OFF";
+  plinkoToggle.style.borderColor = "#00cc55";
+  plinkoToggle.style.color = "#00cc55";
+  plinkoToggle.addEventListener("click", () => {
+    plinkoMode = !plinkoMode;
+    plinkoToggle.textContent = plinkoMode ? "PLINKO: ON" : "PLINKO: OFF";
+    plinkoToggle.style.background = plinkoMode ? "#00cc55" : "";
+    plinkoToggle.style.color = plinkoMode ? "#000" : "#00cc55";
+    if (plinkoMode) {
+      // Start plinko with current card
+      startPlinkoFromCurrentCard();
+    } else {
+      // Exit plinko - clean up
+      stopPlinko();
+      // Re-render the card normally
+      try {
+        const json = ta.value.trim();
+        if (json) renderCard(json);
+      } catch {}
+    }
   });
+  renderRow.appendChild(plinkoToggle);
 }
 
 /* ========= TOYS ========= */
-function runToy(name) {
-  const ctx = CANVAS.getContext("2d");
-  switch (name) {
-    case "ascii":
-      runAsciiMode(ctx);
-      break;
-    case "corrupt":
-      runCorruptMode(ctx);
-      break;
-    case "plinko":
-      runPlinkoMode(ctx);
-      break;
-    default:
-      return false;
-  }
-  return true;
-}
 
 /* --- ASCII MODE --- */
 function runAsciiMode(ctx) {
@@ -718,152 +717,177 @@ function runCorruptMode(ctx) {
 
 /* --- PLINKO MODE --- */
 let plinkoHighScore = 0;
+let plinkoAnimId = null;
+let plinkoDropBtn = null;
+let plinkoState = null;
 
-function runPlinkoMode(ctx) {
-  // Get card from last rendered or textarea
+function stopPlinko() {
+  if (plinkoAnimId) { cancelAnimationFrame(plinkoAnimId); plinkoAnimId = null; }
+  if (plinkoDropBtn) { plinkoDropBtn.style.display = "none"; }
+  plinkoState = null;
+}
+
+function startPlinkoFromCurrentCard() {
   let card;
   try {
-    const raw = ta.value.trim();
-    card = JSON.parse(raw);
+    card = JSON.parse(ta.value.trim());
   } catch {
     card = { rank: "7", suit: "clubs", type: "number" };
   }
+  runPlinkoMode(CANVAS.getContext("2d"), card);
+}
+
+function runPlinkoMode(ctx, card) {
+  // Stop any existing game
+  if (plinkoAnimId) { cancelAnimationFrame(plinkoAnimId); plinkoAnimId = null; }
 
   const rank = String(card.rank || "7").toLowerCase();
   const suit = String(card.suit || "clubs").toLowerCase();
   const color = suitColor(suit);
 
-  // Get pip positions (scaled) for this card
+  // Get pip positions for this card
   const layout = LAYOUTS[rank] || LAYOUTS["7"];
   if (!layout || !layout.length) {
     ctx.clearRect(0, 0, W, H);
-    ctx.fillStyle = "#000";
+    ctx.fillStyle = "#111";
     ctx.fillRect(0, 0, W, H);
     ctx.textAlign = "center";
     ctx.fillStyle = "#00cc55";
     ctx.font = `${Math.round(S(12))}px ui-monospace`;
-    ctx.fillText("need a number card", W / 2, H / 2);
+    ctx.fillText("need a number card for plinko", W / 2, H / 2);
     return;
   }
 
-  // Centre the pegs like drawPipsCentered does
+  // Centre pegs
   const xs = layout.map(([x]) => x);
   const mid = (Math.min(...xs) + Math.max(...xs)) / 2;
-  const dx = W / 2 - mid;
-  const pegs = layout.map(([x, y]) => [x + dx, y]);
+  const ddx = W / 2 - mid;
+  const pegs = layout.map(([x, y]) => [x + ddx, y]);
 
-  // Physics constants
+  // Physics
   const pegRadius = S(12);
-  const ballRadius = S(6);
-  const gravity = 0.15;
-  const bounce = 0.6;
-  const friction = 0.99;
+  const ballRadius = S(5);
+  const gravity = 0.18;
+  const bounceFactor = 0.55;
+  const friction = 0.995;
 
-  // Scoring slots at the bottom
+  // Slots
   const slotCount = 7;
   const slotWidth = W / slotCount;
-  const slotY = H - S(40);
+  const slotY = H - S(50);
   const slotScores = [10, 25, 50, 100, 50, 25, 10];
+  const slotFloor = H - S(8);
 
-  // Launcher
-  const launcherX = W / 2;
-  const launcherY = S(20);
+  // Launcher - moves left/right
+  let launcherX = W / 2;
+  let launcherDir = 1.5;
+  const launcherY = S(18);
 
   // Game state
-  let balls = [];
-  let ballsRemaining = 3;
-  let score = 0;
-  let animId = null;
-  let landed = [];
+  plinkoState = {
+    balls: [],
+    landed: [],
+    ballsRemaining: 3,
+    score: 0,
+    popups: [],
+    roundOver: false,
+  };
+  const st = plinkoState;
 
-  // Create drop button
-  let dropBtn = document.getElementById("plinkoDropBtn");
-  if (!dropBtn) {
-    dropBtn = document.createElement("button");
-    dropBtn.id = "plinkoDropBtn";
-    dropBtn.className = "btn";
-    dropBtn.style.borderColor = "#00cc55";
-    dropBtn.style.color = "#00cc55";
-    dropBtn.textContent = "DROP (3)";
+  // Create or reuse drop button
+  if (!plinkoDropBtn) {
+    plinkoDropBtn = document.createElement("button");
+    plinkoDropBtn.id = "plinkoDropBtn";
+    plinkoDropBtn.className = "btn";
+    plinkoDropBtn.style.borderColor = "#ff8800";
+    plinkoDropBtn.style.color = "#ff8800";
     const renderRow = renderBtn.parentElement;
-    renderRow.appendChild(dropBtn);
+    renderRow.appendChild(plinkoDropBtn);
   }
-  dropBtn.textContent = `DROP (${ballsRemaining})`;
-  dropBtn.disabled = false;
-  dropBtn.style.display = "inline-block";
+  plinkoDropBtn.textContent = `DROP (${st.ballsRemaining})`;
+  plinkoDropBtn.disabled = false;
+  plinkoDropBtn.style.display = "inline-block";
 
-  // Remove old listener
-  const newBtn = dropBtn.cloneNode(true);
-  dropBtn.parentNode.replaceChild(newBtn, dropBtn);
-  dropBtn = newBtn;
+  // Fresh click handler
+  const newBtn = plinkoDropBtn.cloneNode(true);
+  plinkoDropBtn.parentNode.replaceChild(newBtn, plinkoDropBtn);
+  plinkoDropBtn = newBtn;
 
-  dropBtn.addEventListener("click", () => {
-    if (ballsRemaining <= 0) return;
-    ballsRemaining--;
-    dropBtn.textContent = `DROP (${ballsRemaining})`;
-    if (ballsRemaining <= 0) dropBtn.disabled = true;
+  plinkoDropBtn.addEventListener("click", () => {
+    if (st.roundOver) {
+      // Reset
+      st.balls = [];
+      st.landed = [];
+      st.ballsRemaining = 3;
+      st.score = 0;
+      st.popups = [];
+      st.roundOver = false;
+      plinkoDropBtn.textContent = `DROP (${st.ballsRemaining})`;
+      plinkoDropBtn.disabled = false;
+      return;
+    }
+    if (st.ballsRemaining <= 0) return;
+    st.ballsRemaining--;
+    plinkoDropBtn.textContent = `DROP (${st.ballsRemaining})`;
+    if (st.ballsRemaining <= 0) plinkoDropBtn.disabled = true;
 
-    // Launch ball with slight random offset
-    const offset = (Math.random() - 0.5) * S(20);
-    balls.push({
-      x: launcherX + offset,
-      y: launcherY,
-      vx: (Math.random() - 0.5) * 1.5,
+    // Drop from current launcher position
+    st.balls.push({
+      x: launcherX,
+      y: launcherY + S(10),
+      vx: (Math.random() - 0.5) * 0.5,
       vy: 0,
       active: true,
       trail: [],
     });
   });
 
-  // Draw and animate
   function draw() {
     ctx.clearRect(0, 0, W, H);
     ctx.fillStyle = "#111";
     ctx.fillRect(0, 0, W, H);
 
-    // Draw launcher mechanism
-    ctx.strokeStyle = "#444";
+    // Move launcher
+    launcherX += launcherDir;
+    if (launcherX > W - S(30)) launcherDir = -Math.abs(launcherDir);
+    if (launcherX < S(30)) launcherDir = Math.abs(launcherDir);
+
+    // Draw launcher
+    ctx.strokeStyle = "#555";
     ctx.lineWidth = 2;
+    // Rail
     ctx.beginPath();
-    ctx.moveTo(launcherX - S(25), launcherY + S(5));
-    ctx.lineTo(launcherX + S(25), launcherY + S(5));
+    ctx.moveTo(S(20), launcherY);
+    ctx.lineTo(W - S(20), launcherY);
     ctx.stroke();
-    // Launcher funnel
-    ctx.strokeStyle = "#666";
+    // Carriage
+    ctx.fillStyle = "#333";
+    ctx.fillRect(launcherX - S(12), launcherY - S(4), S(24), S(8));
+    // Nozzle
+    ctx.fillStyle = "#00cc55";
+    ctx.fillRect(launcherX - S(3), launcherY + S(2), S(6), S(10));
+    // Indicator dot
     ctx.beginPath();
-    ctx.moveTo(launcherX - S(15), launcherY - S(10));
-    ctx.lineTo(launcherX - S(5), launcherY + S(5));
-    ctx.moveTo(launcherX + S(15), launcherY - S(10));
-    ctx.lineTo(launcherX + S(5), launcherY + S(5));
-    ctx.stroke();
-    // Spring
-    ctx.strokeStyle = "#00cc55";
-    ctx.lineWidth = 1.5;
-    for (let i = 0; i < 4; i++) {
-      const sy = launcherY - S(10) - i * S(4);
-      ctx.beginPath();
-      ctx.moveTo(launcherX - S(4), sy);
-      ctx.lineTo(launcherX + S(4), sy - S(2));
-      ctx.lineTo(launcherX - S(4), sy - S(4));
-      ctx.stroke();
-    }
+    ctx.arc(launcherX, launcherY, S(3), 0, Math.PI * 2);
+    ctx.fillStyle = "#ff8800";
+    ctx.fill();
 
     // Draw pegs as suit symbols
     pegs.forEach(([px, py]) => {
       ctx.fillStyle = color;
       if (isBrown(suit)) {
-        drawPooPip(ctx, px, py, pegRadius * 2);
+        drawPooPip(ctx, px, py, pegRadius * 1.8);
       } else {
-        ctx.font = `${Math.round(pegRadius * 2.2)}px ui-monospace`;
+        ctx.font = `${Math.round(pegRadius * 2)}px ui-monospace`;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.fillText(suitChar(suit), px, py);
       }
     });
 
-    // Draw slot dividers and scores
+    // Draw slot dividers
     ctx.strokeStyle = "#333";
-    ctx.lineWidth = 1;
+    ctx.lineWidth = 1.5;
     for (let i = 0; i <= slotCount; i++) {
       const sx = i * slotWidth;
       ctx.beginPath();
@@ -871,83 +895,103 @@ function runPlinkoMode(ctx) {
       ctx.lineTo(sx, H);
       ctx.stroke();
     }
-    // Slot score labels
+    // Slot floor
+    ctx.strokeStyle = "#444";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(0, slotFloor);
+    ctx.lineTo(W, slotFloor);
+    ctx.stroke();
+    // Slot labels
     ctx.font = `${Math.round(S(8))}px ui-monospace`;
     ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
+    ctx.textBaseline = "bottom";
     for (let i = 0; i < slotCount; i++) {
-      const isCenter = i === 3;
-      ctx.fillStyle = isCenter ? "#ff8800" : "#00cc55";
-      ctx.fillText(String(slotScores[i]), i * slotWidth + slotWidth / 2, slotY + (H - slotY) / 2);
+      ctx.fillStyle = i === 3 ? "#ff8800" : "#00cc55";
+      ctx.fillText(String(slotScores[i]), i * slotWidth + slotWidth / 2, slotFloor - S(2));
     }
 
     // Draw walls
     ctx.strokeStyle = "#333";
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.moveTo(0, launcherY + S(5));
+    ctx.moveTo(0, launcherY);
     ctx.lineTo(0, H);
-    ctx.moveTo(W, launcherY + S(5));
+    ctx.moveTo(W, launcherY);
     ctx.lineTo(W, H);
     ctx.stroke();
 
-    // Update and draw balls
-    balls.forEach((ball) => {
+    // Draw landed balls (sitting in slots)
+    st.landed.forEach((lb) => {
+      ctx.beginPath();
+      ctx.arc(lb.x, lb.y, ballRadius, 0, Math.PI * 2);
+      ctx.fillStyle = "#888";
+      ctx.fill();
+      ctx.strokeStyle = "#aaa";
+      ctx.lineWidth = 0.5;
+      ctx.stroke();
+    });
+
+    // Update active balls
+    st.balls.forEach((ball) => {
       if (!ball.active) return;
 
-      // Gravity
       ball.vy += gravity;
       ball.vx *= friction;
-
-      // Move
       ball.x += ball.vx;
       ball.y += ball.vy;
 
       // Trail
       ball.trail.push([ball.x, ball.y]);
-      if (ball.trail.length > 20) ball.trail.shift();
+      if (ball.trail.length > 15) ball.trail.shift();
 
-      // Bounce off pegs
+      // Peg collision
       pegs.forEach(([px, py]) => {
-        const ddx = ball.x - px;
-        const ddy = ball.y - py;
-        const dist = Math.sqrt(ddx * ddx + ddy * ddy);
+        const bx = ball.x - px;
+        const by = ball.y - py;
+        const dist = Math.sqrt(bx * bx + by * by);
         const minDist = pegRadius + ballRadius;
         if (dist < minDist && dist > 0) {
-          // Push ball out
-          const nx = ddx / dist;
-          const ny = ddy / dist;
+          const nx = bx / dist;
+          const ny = by / dist;
           ball.x = px + nx * minDist;
           ball.y = py + ny * minDist;
-          // Reflect velocity
           const dot = ball.vx * nx + ball.vy * ny;
           ball.vx -= 2 * dot * nx;
           ball.vy -= 2 * dot * ny;
-          // Apply bounce dampening and add randomness
-          ball.vx *= bounce;
-          ball.vy *= bounce;
-          ball.vx += (Math.random() - 0.5) * 0.8;
+          ball.vx *= bounceFactor;
+          ball.vy *= bounceFactor;
+          ball.vx += (Math.random() - 0.5) * 1.2;
         }
       });
 
-      // Wall bounces
-      if (ball.x < ballRadius) { ball.x = ballRadius; ball.vx = Math.abs(ball.vx) * bounce; }
-      if (ball.x > W - ballRadius) { ball.x = W - ballRadius; ball.vx = -Math.abs(ball.vx) * bounce; }
+      // Wall bounce
+      if (ball.x < ballRadius) { ball.x = ballRadius; ball.vx = Math.abs(ball.vx) * bounceFactor; }
+      if (ball.x > W - ballRadius) { ball.x = W - ballRadius; ball.vx = -Math.abs(ball.vx) * bounceFactor; }
 
-      // Landed in slot
-      if (ball.y >= slotY) {
+      // Landed in slot - ball stays
+      if (ball.y >= slotFloor - ballRadius) {
         ball.active = false;
         const slotIdx = Math.min(slotCount - 1, Math.max(0, Math.floor(ball.x / slotWidth)));
         const pts = slotScores[slotIdx];
-        score += pts;
-        landed.push({ x: ball.x, y: slotY - S(5), pts, fade: 30 });
+        st.score += pts;
+
+        // Stack balls in the slot
+        const slotCenterX = slotIdx * slotWidth + slotWidth / 2;
+        const existingInSlot = st.landed.filter(
+          (lb) => Math.floor(lb.x / slotWidth) === slotIdx || Math.abs(lb.x - slotCenterX) < slotWidth / 2
+        ).length;
+        const landY = slotFloor - ballRadius - existingInSlot * (ballRadius * 2);
+
+        st.landed.push({ x: slotCenterX, y: landY });
+        st.popups.push({ x: slotCenterX, y: slotY - S(10), pts, fade: 40 });
       }
 
       // Draw trail
-      ctx.strokeStyle = "rgba(0,204,85,0.15)";
-      ctx.lineWidth = ballRadius;
-      ctx.lineCap = "round";
       if (ball.trail.length > 1) {
+        ctx.strokeStyle = "rgba(255,255,255,0.1)";
+        ctx.lineWidth = ballRadius * 0.8;
+        ctx.lineCap = "round";
         ctx.beginPath();
         ctx.moveTo(ball.trail[0][0], ball.trail[0][1]);
         ball.trail.forEach(([tx, ty]) => ctx.lineTo(tx, ty));
@@ -964,60 +1008,60 @@ function runPlinkoMode(ctx) {
       ctx.stroke();
     });
 
-    // Draw landing score popups
-    landed = landed.filter((l) => {
-      l.fade--;
-      if (l.fade <= 0) return false;
-      ctx.fillStyle = `rgba(255,136,0,${l.fade / 30})`;
+    // Score popups
+    st.popups = st.popups.filter((p) => {
+      p.fade--;
+      if (p.fade <= 0) return false;
+      ctx.fillStyle = `rgba(255,136,0,${p.fade / 40})`;
       ctx.font = `${Math.round(S(12))}px ui-monospace`;
       ctx.textAlign = "center";
-      ctx.fillText(`+${l.pts}`, l.x, l.y - (30 - l.fade) * 1.5);
+      ctx.textBaseline = "middle";
+      ctx.fillText(`+${p.pts}`, p.x, p.y - (40 - p.fade) * 1.2);
       return true;
     });
 
-    // Draw score display
+    // Score display
     ctx.fillStyle = "#00cc55";
     ctx.font = `${Math.round(S(9))}px ui-monospace`;
     ctx.textAlign = "left";
     ctx.textBaseline = "top";
-    ctx.fillText(`SCORE: ${score}`, S(8), S(4));
+    ctx.fillText(`SCORE: ${st.score}`, S(6), S(3));
     ctx.textAlign = "right";
-    ctx.fillText(`HIGH: ${plinkoHighScore}`, W - S(8), S(4));
+    ctx.fillText(`HIGH: ${plinkoHighScore}`, W - S(6), S(3));
 
-    // Check if round is over
-    const allDone = ballsRemaining <= 0 && balls.every((b) => !b.active);
-    if (allDone && balls.length > 0) {
-      if (score > plinkoHighScore) plinkoHighScore = score;
-      ctx.fillStyle = "#ff8800";
-      ctx.font = `${Math.round(S(14))}px ui-monospace`;
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText(`TOTAL: ${score}`, W / 2, H / 2 - S(10));
-      if (score >= plinkoHighScore && score > 0) {
-        ctx.fillStyle = "#00cc55";
-        ctx.font = `${Math.round(S(10))}px ui-monospace`;
-        ctx.fillText("NEW HIGH SCORE!", W / 2, H / 2 + S(14));
-      }
-      // Reset button
-      dropBtn.textContent = "AGAIN";
-      dropBtn.disabled = false;
-      const resetHandler = () => {
-        dropBtn.removeEventListener("click", resetHandler);
-        balls = [];
-        landed = [];
-        ballsRemaining = 3;
-        score = 0;
-        runPlinkoMode(ctx);
-      };
-      dropBtn.addEventListener("click", resetHandler);
-      return; // Stop animation
+    // Card name
+    ctx.textAlign = "center";
+    ctx.fillStyle = "#555";
+    ctx.font = `${Math.round(S(7))}px ui-monospace`;
+    ctx.fillText(`${rank} of ${suit}`, W / 2, S(3));
+
+    // Round over check
+    const allDone = st.ballsRemaining <= 0 && st.balls.length > 0 && st.balls.every((b) => !b.active);
+    if (allDone && !st.roundOver) {
+      st.roundOver = true;
+      if (st.score > plinkoHighScore) plinkoHighScore = st.score;
+      plinkoDropBtn.textContent = "AGAIN";
+      plinkoDropBtn.disabled = false;
     }
 
-    animId = requestAnimationFrame(draw);
+    if (st.roundOver) {
+      ctx.fillStyle = "rgba(0,0,0,0.5)";
+      ctx.fillRect(W / 2 - S(80), H / 2 - S(30), S(160), S(60));
+      ctx.fillStyle = "#ff8800";
+      ctx.font = `${Math.round(S(16))}px ui-monospace`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(`${st.score} PTS`, W / 2, H / 2 - S(6));
+      if (st.score >= plinkoHighScore && st.score > 0) {
+        ctx.fillStyle = "#00cc55";
+        ctx.font = `${Math.round(S(9))}px ui-monospace`;
+        ctx.fillText("NEW HIGH SCORE!", W / 2, H / 2 + S(16));
+      }
+    }
+
+    plinkoAnimId = requestAnimationFrame(draw);
   }
 
-  // Cancel any existing animation
-  if (animId) cancelAnimationFrame(animId);
   draw();
 }
 
@@ -1430,13 +1474,10 @@ renderBtn.addEventListener("click", () => {
       return;
     }
 
-    // Toys (only if patch activated)
-    if (patchActivated) {
-      const cmd = json.toLowerCase();
-      if (["ascii", "corrupt", "plinko"].includes(cmd)) {
-        runToy(cmd);
-        return;
-      }
+    // If plinko mode is on, rebuild the board with the new card
+    if (plinkoMode) {
+      startPlinkoFromCurrentCard();
+      return;
     }
 
     renderCard(json);
