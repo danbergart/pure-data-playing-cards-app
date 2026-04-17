@@ -336,34 +336,68 @@ function drawCredits(ctx) {
 let patchActivated = false;
 
 function runGlitchEffect(ctx, callback) {
+  // Create fullscreen overlay for dramatic glitch
+  const overlay = document.createElement("div");
+  overlay.style.cssText = "position:fixed;inset:0;z-index:99999;background:#000;pointer-events:none;";
+  const glitchCanvas = document.createElement("canvas");
+  glitchCanvas.width = window.innerWidth;
+  glitchCanvas.height = window.innerHeight;
+  glitchCanvas.style.cssText = "width:100%;height:100%;";
+  overlay.appendChild(glitchCanvas);
+  document.body.appendChild(overlay);
+  const gCtx = glitchCanvas.getContext("2d");
+  const gW = glitchCanvas.width;
+  const gH = glitchCanvas.height;
+
   let frame = 0;
-  const totalFrames = 30;
+  const totalFrames = 40;
   const glitch = () => {
     if (frame >= totalFrames) {
-      callback();
+      // Fade out overlay
+      overlay.style.transition = "opacity 0.4s";
+      overlay.style.opacity = "0";
+      setTimeout(() => { overlay.remove(); callback(); }, 400);
       return;
     }
-    // Save current canvas
-    const imgData = ctx.getImageData(0, 0, W, H);
-    // Random horizontal slices
-    for (let i = 0; i < 5; i++) {
-      const y = Math.floor(Math.random() * H);
-      const h = Math.floor(Math.random() * 20) + 5;
-      const shift = Math.floor(Math.random() * 40) - 20;
-      const slice = ctx.getImageData(0, y, W, h);
-      ctx.putImageData(slice, shift, y);
+
+    // Black base with green tint
+    gCtx.fillStyle = `rgba(0,0,0,0.3)`;
+    gCtx.fillRect(0, 0, gW, gH);
+
+    // Horizontal slice displacement
+    for (let i = 0; i < 8 + frame; i++) {
+      const y = Math.floor(Math.random() * gH);
+      const h = Math.floor(Math.random() * 30) + 5;
+      const shift = Math.floor(Math.random() * 80) - 40;
+      gCtx.fillStyle = `rgba(0,${100 + Math.random() * 155},0,${0.1 + Math.random() * 0.4})`;
+      gCtx.fillRect(shift, y, gW, h);
     }
-    // Random colour channel corruption
-    const d = ctx.getImageData(0, 0, W, H);
-    for (let i = 0; i < 800; i++) {
-      const px = Math.floor(Math.random() * d.data.length / 4) * 4;
-      const ch = Math.floor(Math.random() * 3);
-      d.data[px + ch] = Math.floor(Math.random() * 256);
+
+    // Bright green flash bars
+    for (let i = 0; i < 3; i++) {
+      gCtx.fillStyle = `rgba(0,255,0,${Math.random() * 0.5})`;
+      gCtx.fillRect(0, Math.random() * gH, gW, Math.random() * 3 + 1);
     }
-    ctx.putImageData(d, 0, 0);
-    // Flash bars
-    ctx.fillStyle = `rgba(0,255,0,${Math.random() * 0.3})`;
-    ctx.fillRect(0, Math.random() * H, W, 2);
+
+    // Garbled text
+    gCtx.fillStyle = `rgba(0,200,80,${0.3 + Math.random() * 0.5})`;
+    gCtx.font = `${12 + Math.floor(Math.random() * 16)}px ui-monospace`;
+    gCtx.textAlign = "left";
+    for (let i = 0; i < 3 + Math.floor(frame / 5); i++) {
+      const chars = "01{}:\"system_patchPATCH-001featureunlockhiddenchecksum4fva9dc";
+      let garble = "";
+      for (let c = 0; c < Math.floor(Math.random() * 30) + 10; c++) {
+        garble += chars[Math.floor(Math.random() * chars.length)];
+      }
+      gCtx.fillText(garble, Math.random() * gW * 0.8, Math.random() * gH);
+    }
+
+    // Big flash in the middle frames
+    if (frame > 15 && frame < 25 && Math.random() > 0.5) {
+      gCtx.fillStyle = `rgba(0,255,0,${0.1 + Math.random() * 0.2})`;
+      gCtx.fillRect(0, 0, gW, gH);
+    }
+
     frame++;
     requestAnimationFrame(glitch);
   };
@@ -488,7 +522,6 @@ function runToy(name) {
 
 /* --- ASCII MODE --- */
 function runAsciiMode(ctx) {
-  // Get current card from textarea, or use a default
   let card;
   const raw = ta.value.trim();
   try {
@@ -501,73 +534,108 @@ function runAsciiMode(ctx) {
   ctx.fillStyle = "#000";
   ctx.fillRect(0, 0, W, H);
 
-  ctx.textAlign = "left";
-  ctx.fillStyle = "#00cc55";
-  ctx.font = `${Math.round(S(7))}px ui-monospace`;
-
-  const rank = String(card.rank || "?").toUpperCase();
+  const rank = String(card.rank || "?").toUpperCase().replace(/^ACE$/, "A");
   const suit = String(card.suit || "?").toLowerCase();
   const sChar = ({ clubs: "C", spades: "S", hearts: "H", diamonds: "D", poo: "P" })[suit] || "?";
-  const pip = ({ clubs: "%", spades: "^", hearts: "<3", diamonds: "<>", poo: "@" })[suit] || "?";
+  const pip = ({ clubs: "%", spades: "^", hearts: "v", diamonds: "<>", poo: "@" })[suit] || "?";
 
-  // Build ASCII card
-  const lines = [];
-  lines.push("+-------------------+");
-  lines.push(`| ${rank.padEnd(2)}              ${sChar} |`);
-  lines.push("|                   |");
+  // Card dimensions in characters
+  const cols = 27;
+  const rows = 35;
+
+  // Build grid
+  const grid = [];
+  // Top border
+  grid.push("+" + "-".repeat(cols - 2) + "+");
+  // Rank line
+  grid.push("| " + rank.padEnd(2) + " ".repeat(cols - 7) + sChar + " |");
+  // Empty line
+  grid.push("|" + " ".repeat(cols - 2) + "|");
 
   if (card.type === "face") {
     const faceArt = {
-      jack:  ["   ___   ", "  |o o|  ", "  | - |  ", "  |___|  ", "   | |   ", "   |_|   "],
-      queen: ["   ___   ", "  |o o|  ", "  | v |  ", "  |___|  ", "  /| |\\  ", " /_|_|\\ "],
-      king:  ["   ___   ", "  |o o|  ", "  | = |  ", "  |___|  ", " /|| ||\\ ", "/_||_||\\_"],
+      jack:  ["     _____     ", "    |     |    ", "    | o o |    ", "    |  -  |    ", "    |_____|    ", "      | |      ", "     _| |_     ", "    |_____|    "],
+      queen: ["     _____     ", "    |     |    ", "    | o o |    ", "    |  v  |    ", "    |_____|    ", "     /| |\\     ", "    / | | \\    ", "   /__|_|__\\   "],
+      king:  ["     _____     ", "    |     |    ", "    | o o |    ", "    |  =  |    ", "    |_____|    ", "    /|   |\\    ", "   / |   | \\   ", "  /__|___|__\\  "],
     };
-    const art = faceArt[rank.toLowerCase()] || faceArt.jack;
-    lines.push("|                   |");
-    art.forEach((l) => lines.push(`|    ${l.padEnd(15)}|`));
-    lines.push("|                   |");
+    const art = faceArt[card.rank?.toLowerCase()] || faceArt.jack;
+    const padTop = Math.floor((rows - 6 - art.length) / 2);
+    for (let i = 0; i < padTop; i++) grid.push("|" + " ".repeat(cols - 2) + "|");
+    art.forEach((l) => {
+      const padded = l.length < cols - 2 ? l.padStart(Math.floor((cols - 2 + l.length) / 2)).padEnd(cols - 2) : l.substring(0, cols - 2);
+      grid.push("|" + padded + "|");
+    });
+    const remaining = rows - grid.length - 3;
+    for (let i = 0; i < remaining; i++) grid.push("|" + " ".repeat(cols - 2) + "|");
   } else if (card.type === "back") {
-    for (let i = 0; i < 8; i++) {
-      const row = i % 2 === 0 ? "x . x . x . x . x" : ". x . x . x . x .";
-      lines.push(`| ${row} |`);
+    const patternRows = rows - 6;
+    for (let i = 0; i < patternRows; i++) {
+      const row = i % 2 === 0
+        ? " x . x . x . x . x . x . "
+        : " . x . x . x . x . x . x ";
+      const trimmed = row.substring(0, cols - 2).padEnd(cols - 2);
+      grid.push("|" + trimmed + "|");
     }
   } else {
-    // Number card - show pips in a pattern
-    const count = parseInt(card.rank) || 1;
-    const grid = [];
-    for (let i = 0; i < 7; i++) grid.push("                   ");
-    const positions = {
-      1: [[3, 9]], 2: [[1, 9], [5, 9]], 3: [[1, 9], [3, 9], [5, 9]],
-      4: [[1, 5], [1, 13], [5, 5], [5, 13]],
-      5: [[1, 5], [1, 13], [3, 9], [5, 5], [5, 13]],
-      6: [[1, 5], [1, 13], [3, 5], [3, 13], [5, 5], [5, 13]],
-      7: [[1, 5], [1, 13], [2, 9], [3, 5], [3, 13], [5, 5], [5, 13]],
-      8: [[1, 5], [1, 13], [2, 9], [3, 5], [3, 13], [4, 9], [5, 5], [5, 13]],
-      9: [[1, 5], [1, 13], [2, 5], [2, 13], [3, 9], [4, 5], [4, 13], [5, 5], [5, 13]],
-      10: [[0, 5], [0, 13], [1, 9], [2, 5], [2, 13], [4, 5], [4, 13], [5, 9], [6, 5], [6, 13]],
+    // Number card with pips
+    const innerRows = rows - 6;
+    const innerCols = cols - 4;
+    const inner = [];
+    for (let i = 0; i < innerRows; i++) inner.push(" ".repeat(innerCols).split(""));
+
+    const count = card.rank?.toLowerCase() === "ace" ? 1 : (parseInt(card.rank) || 1);
+    const midR = Math.floor(innerRows / 2);
+    const midC = Math.floor(innerCols / 2);
+    const topR = Math.floor(innerRows * 0.15);
+    const botR = Math.floor(innerRows * 0.85);
+    const upR = Math.floor(innerRows * 0.33);
+    const loR = Math.floor(innerRows * 0.67);
+    const leftC = Math.floor(innerCols * 0.25);
+    const rightC = Math.floor(innerCols * 0.75);
+
+    const layouts = {
+      1: [[midR, midC]],
+      2: [[topR, midC], [botR, midC]],
+      3: [[topR, midC], [midR, midC], [botR, midC]],
+      4: [[topR, leftC], [topR, rightC], [botR, leftC], [botR, rightC]],
+      5: [[topR, leftC], [topR, rightC], [midR, midC], [botR, leftC], [botR, rightC]],
+      6: [[topR, leftC], [topR, rightC], [midR, leftC], [midR, rightC], [botR, leftC], [botR, rightC]],
+      7: [[topR, leftC], [topR, rightC], [upR, midC], [midR, leftC], [midR, rightC], [botR, leftC], [botR, rightC]],
+      8: [[topR, leftC], [topR, rightC], [upR, midC], [midR, leftC], [midR, rightC], [loR, midC], [botR, leftC], [botR, rightC]],
+      9: [[topR, leftC], [topR, rightC], [upR, leftC], [upR, rightC], [midR, midC], [loR, leftC], [loR, rightC], [botR, leftC], [botR, rightC]],
+      10: [[topR, leftC], [topR, rightC], [upR, leftC], [upR, rightC], [Math.floor(innerRows * 0.25), midC], [loR, leftC], [loR, rightC], [botR, leftC], [botR, rightC], [Math.floor(innerRows * 0.75), midC]],
     };
-    const pos = positions[count] || positions[1];
-    const gridChars = grid.map((r) => r.split(""));
+
+    const pos = layouts[count] || layouts[1];
     pos.forEach(([r, c]) => {
-      const p = pip.length > 1 ? pip : pip;
-      if (r < gridChars.length && c < gridChars[r].length) {
-        gridChars[r][c] = p[0];
-        if (p.length > 1 && c + 1 < gridChars[r].length) gridChars[r][c + 1] = p[1];
+      if (r >= 0 && r < innerRows && c >= 0 && c < innerCols) {
+        inner[r][c] = pip[0];
+        if (pip.length > 1 && c + 1 < innerCols) inner[r][c + 1] = pip[1];
       }
     });
-    gridChars.forEach((row) => lines.push(`| ${row.join("")} |`));
+
+    inner.forEach((row) => grid.push("|  " + row.join("") + "  |"));
   }
 
-  lines.push("|                   |");
-  lines.push(`| ${sChar}              ${rank.padStart(2)} |`);
-  lines.push("+-------------------+");
+  // Empty line before bottom
+  grid.push("|" + " ".repeat(cols - 2) + "|");
+  // Bottom rank
+  grid.push("| " + sChar + " ".repeat(cols - 7) + rank.padStart(2) + " |");
+  // Bottom border
+  grid.push("+" + "-".repeat(cols - 2) + "+");
 
-  // Draw the ASCII art
-  const lineHeight = S(11);
-  const startY = (H - lines.length * lineHeight) / 2;
-  const startX = S(40);
-  lines.forEach((line, i) => {
-    ctx.fillText(line, startX, startY + i * lineHeight);
+  // Calculate font size to fill the canvas
+  const fontSize = Math.floor(Math.min(W / (cols * 0.62), H / (grid.length * 1.25)));
+  const lineHeight = fontSize * 1.2;
+  const totalHeight = grid.length * lineHeight;
+  const startY = (H - totalHeight) / 2 + fontSize;
+
+  ctx.fillStyle = "#00cc55";
+  ctx.font = `${fontSize}px ui-monospace`;
+  ctx.textAlign = "center";
+
+  grid.forEach((line, i) => {
+    ctx.fillText(line, W / 2, startY + i * lineHeight);
   });
 }
 
