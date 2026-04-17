@@ -22,9 +22,21 @@
         placeholder="Paste or type card JSON here…"
       ></textarea>
 
-      <!-- Render button -->
-      <div class="row center">
+      <!-- Render + Plinko toggle row -->
+      <div class="row center gap-lg" id="renderRow">
         <button id="renderBtn" class="btn primary">Render Card</button>
+      </div>
+
+      <!-- Plinko score display (shown when Plinko is on) -->
+      <div class="row center gap" id="plinkoScores" hidden>
+        <div class="score-chip">
+          <span class="score-label">SCORE</span>
+          <span id="plinkoScoreVal">0</span>
+        </div>
+        <div class="score-chip">
+          <span class="score-label">HIGH</span>
+          <span id="plinkoHighVal">0</span>
+        </div>
       </div>
 
       <!-- Canvas -->
@@ -36,6 +48,9 @@
           aria-label="card canvas"
         ></canvas>
       </div>
+
+      <!-- Drop ball row (shown when Plinko is on) -->
+      <div class="row center" id="plinkoDropRow" hidden></div>
     </div>
 
     <!-- Camera overlay is created dynamically by JS -->

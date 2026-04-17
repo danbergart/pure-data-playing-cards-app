@@ -45,6 +45,82 @@ body {
   gap: 12px;
 }
 
+.gap-lg {
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+/* Plinko toggle switch */
+.toggle-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  background: #202020;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  cursor: pointer;
+  color: #fff;
+  user-select: none;
+  font: inherit;
+}
+.toggle-switch .toggle-label {
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+.toggle-switch .toggle-track {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  background: #555;
+  border-radius: 12px;
+  transition: background 0.2s ease;
+  flex: 0 0 auto;
+}
+.toggle-switch .toggle-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  background: #fff;
+  border-radius: 50%;
+  transition: left 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+.toggle-switch .toggle-state {
+  min-width: 28px;
+  text-align: left;
+  color: #888;
+  font-size: 13px;
+}
+.toggle-switch.on .toggle-track {
+  background: #00cc55;
+}
+.toggle-switch.on .toggle-knob {
+  left: 20px;
+}
+.toggle-switch.on .toggle-state {
+  color: #00cc55;
+}
+
+/* Plinko score chips */
+.score-chip {
+  background: #111;
+  color: #00cc55;
+  padding: 10px 18px;
+  border-radius: 10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 15px;
+  letter-spacing: 0.5px;
+  border: 1px solid var(--line);
+}
+.score-chip .score-label {
+  color: #777;
+  margin-right: 8px;
+  font-size: 12px;
+}
+
 .btn {
   appearance: none;
   border: 1px solid var(--line);

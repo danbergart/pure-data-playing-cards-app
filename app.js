@@ -487,32 +487,36 @@ function showToyButtons() {
   if (toyBtnsAdded) return;
   toyBtnsAdded = true;
 
-  // Add plinko toggle next to render button
   const renderRow = renderBtn.parentElement;
 
-  const plinkoToggle = document.createElement("button");
+  const plinkoToggle = document.createElement("div");
   plinkoToggle.id = "plinkoToggle";
-  plinkoToggle.className = "btn";
-  plinkoToggle.textContent = "PLINKO: OFF";
-  plinkoToggle.style.borderColor = "#00cc55";
-  plinkoToggle.style.color = "#00cc55";
-  plinkoToggle.addEventListener("click", () => {
+  plinkoToggle.className = "toggle-switch";
+  plinkoToggle.setAttribute("role", "switch");
+  plinkoToggle.setAttribute("aria-checked", "false");
+  plinkoToggle.setAttribute("tabindex", "0");
+  plinkoToggle.innerHTML =
+    '<span class="toggle-label">Plinko</span>' +
+    '<span class="toggle-track"><span class="toggle-knob"></span></span>' +
+    '<span class="toggle-state">OFF</span>';
+  const togglePlinko = () => {
     plinkoMode = !plinkoMode;
-    plinkoToggle.textContent = plinkoMode ? "PLINKO: ON" : "PLINKO: OFF";
-    plinkoToggle.style.background = plinkoMode ? "#00cc55" : "";
-    plinkoToggle.style.color = plinkoMode ? "#000" : "#00cc55";
+    plinkoToggle.classList.toggle("on", plinkoMode);
+    plinkoToggle.setAttribute("aria-checked", plinkoMode ? "true" : "false");
+    plinkoToggle.querySelector(".toggle-state").textContent = plinkoMode ? "ON" : "OFF";
     if (plinkoMode) {
-      // Start plinko with current card
       startPlinkoFromCurrentCard();
     } else {
-      // Exit plinko - clean up
       stopPlinko();
-      // Re-render the card normally
       try {
         const json = ta.value.trim();
         if (json) renderCard(json);
       } catch {}
     }
+  };
+  plinkoToggle.addEventListener("click", togglePlinko);
+  plinkoToggle.addEventListener("keydown", (e) => {
+    if (e.key === " " || e.key === "Enter") { e.preventDefault(); togglePlinko(); }
   });
   renderRow.appendChild(plinkoToggle);
 }
@@ -724,6 +728,10 @@ let plinkoState = null;
 function stopPlinko() {
   if (plinkoAnimId) { cancelAnimationFrame(plinkoAnimId); plinkoAnimId = null; }
   if (plinkoDropBtn) { plinkoDropBtn.style.display = "none"; }
+  const scores = document.getElementById("plinkoScores");
+  if (scores) scores.hidden = true;
+  const dropRow = document.getElementById("plinkoDropRow");
+  if (dropRow) dropRow.hidden = true;
   plinkoState = null;
 }
 
@@ -794,17 +802,28 @@ function runPlinkoMode(ctx, card) {
   };
   const st = plinkoState;
 
-  // Create or reuse drop button
+  // Show score chips + drop row
+  const scoresEl = document.getElementById("plinkoScores");
+  const dropRow = document.getElementById("plinkoDropRow");
+  if (scoresEl) scoresEl.hidden = false;
+  if (dropRow) dropRow.hidden = false;
+
+  // Create or reuse drop button (in its own row below the canvas)
   if (!plinkoDropBtn) {
     plinkoDropBtn = document.createElement("button");
     plinkoDropBtn.id = "plinkoDropBtn";
-    plinkoDropBtn.className = "btn";
+    plinkoDropBtn.className = "btn primary";
+    plinkoDropBtn.style.background = "#ff8800";
     plinkoDropBtn.style.borderColor = "#ff8800";
-    plinkoDropBtn.style.color = "#ff8800";
-    const renderRow = renderBtn.parentElement;
-    renderRow.appendChild(plinkoDropBtn);
+    plinkoDropBtn.style.color = "#000";
+    plinkoDropBtn.style.fontWeight = "600";
+    plinkoDropBtn.style.letterSpacing = "1px";
+    plinkoDropBtn.style.padding = "12px 28px";
   }
-  plinkoDropBtn.textContent = `DROP (${st.ballsRemaining})`;
+  if (dropRow && plinkoDropBtn.parentNode !== dropRow) {
+    dropRow.appendChild(plinkoDropBtn);
+  }
+  plinkoDropBtn.textContent = `DROP BALL (${st.ballsRemaining})`;
   plinkoDropBtn.disabled = false;
   plinkoDropBtn.style.display = "inline-block";
 
@@ -822,13 +841,13 @@ function runPlinkoMode(ctx, card) {
       st.score = 0;
       st.popups = [];
       st.roundOver = false;
-      plinkoDropBtn.textContent = `DROP (${st.ballsRemaining})`;
+      plinkoDropBtn.textContent = `DROP BALL (${st.ballsRemaining})`;
       plinkoDropBtn.disabled = false;
       return;
     }
     if (st.ballsRemaining <= 0) return;
     st.ballsRemaining--;
-    plinkoDropBtn.textContent = `DROP (${st.ballsRemaining})`;
+    plinkoDropBtn.textContent = `DROP BALL (${st.ballsRemaining})`;
     if (st.ballsRemaining <= 0) plinkoDropBtn.disabled = true;
 
     // Drop from current launcher position
@@ -902,13 +921,13 @@ function runPlinkoMode(ctx, card) {
     ctx.moveTo(0, slotFloor);
     ctx.lineTo(W, slotFloor);
     ctx.stroke();
-    // Slot labels
-    ctx.font = `${Math.round(S(8))}px ui-monospace`;
+    // Slot labels — large, positioned just above slot area so landed balls don't cover them
+    ctx.font = `bold ${Math.round(S(16))}px ui-monospace`;
     ctx.textAlign = "center";
     ctx.textBaseline = "bottom";
     for (let i = 0; i < slotCount; i++) {
       ctx.fillStyle = i === 3 ? "#ff8800" : "#00cc55";
-      ctx.fillText(String(slotScores[i]), i * slotWidth + slotWidth / 2, slotFloor - S(2));
+      ctx.fillText(String(slotScores[i]), i * slotWidth + slotWidth / 2, slotY - S(4));
     }
 
     // Draw walls
@@ -1020,20 +1039,11 @@ function runPlinkoMode(ctx, card) {
       return true;
     });
 
-    // Score display
-    ctx.fillStyle = "#00cc55";
-    ctx.font = `${Math.round(S(9))}px ui-monospace`;
-    ctx.textAlign = "left";
-    ctx.textBaseline = "top";
-    ctx.fillText(`SCORE: ${st.score}`, S(6), S(3));
-    ctx.textAlign = "right";
-    ctx.fillText(`HIGH: ${plinkoHighScore}`, W - S(6), S(3));
-
-    // Card name
-    ctx.textAlign = "center";
-    ctx.fillStyle = "#555";
-    ctx.font = `${Math.round(S(7))}px ui-monospace`;
-    ctx.fillText(`${rank} of ${suit}`, W / 2, S(3));
+    // Update score display in the DOM (outside the canvas)
+    const scoreEl = document.getElementById("plinkoScoreVal");
+    const highEl = document.getElementById("plinkoHighVal");
+    if (scoreEl) scoreEl.textContent = st.score;
+    if (highEl) highEl.textContent = plinkoHighScore;
 
     // Round over check
     const allDone = st.ballsRemaining <= 0 && st.balls.length > 0 && st.balls.every((b) => !b.active);
