@@ -209,7 +209,7 @@ function drawCornerPair(ctx, rankText, suit, color, pad, cornerFont, suitFont) {
   ctx.fillText(rankText, pad, pad);
   const rankW = ctx.measureText(rankText).width;
   if (isBrown(suit)) {
-    drawPooPip(ctx, pad + rankW / 2, pad + parseInt(cornerFont, 10) * 1.3, S(CARD_SCALE.cornerSuit) * 0.9);
+    drawPooPip(ctx, pad + rankW / 2, pad + parseInt(cornerFont, 10) * 1.3, S(CARD_SCALE.cornerSuit) * 0.5);
   } else {
     ctx.font = suitFont;
     ctx.textAlign = "center";
@@ -232,7 +232,7 @@ function drawCornerPair(ctx, rankText, suit, color, pad, cornerFont, suitFont) {
   ctx.fillText(rankText, 0, 0);
   const rankW2 = ctx.measureText(rankText).width;
   if (isBrown(suit)) {
-    drawPooPip(ctx, rankW2 / 2, parseInt(cornerFont, 10) * 1.3, S(CARD_SCALE.cornerSuit) * 0.9);
+    drawPooPip(ctx, rankW2 / 2, parseInt(cornerFont, 10) * 1.3, S(CARD_SCALE.cornerSuit) * 0.5);
   } else {
     ctx.font = suitFont;
     ctx.textAlign = "center";
