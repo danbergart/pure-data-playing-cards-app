@@ -255,81 +255,96 @@ function drawPipsCentered(ctx, layout, suit, color, pipFont) {
   ctx.restore();
 }
 
-function drawPooPipsCentered(ctx, layout, color) {
+function drawPooPipsCentered(ctx, layout, color, pipSize) {
   if (!layout || !layout.length) return;
   const xs = layout.map(([x]) => x);
   const mid = (Math.min(...xs) + Math.max(...xs)) / 2;
   const dx = W / 2 - mid;
   ctx.save();
   ctx.fillStyle = color;
-  const pipSize = S(CARD_SCALE.pips) * 0.5;
-  layout.forEach(([x, y]) => drawPooPip(ctx, x + dx, y, pipSize));
+  const size = pipSize || S(CARD_SCALE.pips) * 0.5;
+  layout.forEach(([x, y]) => drawPooPip(ctx, x + dx, y, size));
   ctx.restore();
 }
 
 /* ========= CREDITS ========= */
 const DIGITAL_SUPPORTERS = [
-  // Replace with actual backer names when known
-  "Backer_01",
-  "Backer_02",
-  "Backer_03",
-  "Backer_04",
-  "Backer_05",
+  "Oly Ritchie", "Fabian Wiberg", "Uglen", "Caroline F.", "Thalie",
+  "GodVars", "Rayvn M.", "Lordviper33", "David J Scott", "AlNapp",
+  "RhysWynne", "Paul Browning", "Pat Reaney", "DavidAult", "Iris Aurora",
+  "JustGini", "SootMonkey", "Jetarullah", "FukaclawRyu", "Stephen Short",
+  "Jsbaseplayer", "John L", "JelleJT", "Mark Alford", "Callmesalticidae",
 ];
 
 function drawCredits(ctx) {
-  // Black background
   ctx.clearRect(0, 0, W, H);
   ctx.fillStyle = "#000";
   ctx.fillRect(0, 0, W, H);
 
-  ctx.textAlign = "center";
   const green = "#00cc55";
+  const orange = "#ff8800";
   const dim = "rgba(0,204,85,0.5)";
+  const punc = "#5a615a";
+  const mono = (px) => `${Math.round(S(px))}px Consolas, Inconsolata, ui-monospace, monospace`;
 
-  // Header
-  ctx.fillStyle = green;
-  ctx.font = `${Math.round(S(16))}px ui-monospace`;
-  ctx.fillText("// CREDITS", W / 2, S(40));
+  ctx.textBaseline = "alphabetic";
+  ctx.textAlign = "left";
 
-  // Digital Supporters
+  // header
+  ctx.fillStyle = orange;
+  ctx.font = mono(13);
+  ctx.fillText("// CREDITS", S(20), S(36));
+
+  // digital supporters label
   ctx.fillStyle = dim;
-  ctx.font = `${Math.round(S(10))}px ui-monospace`;
-  ctx.fillText("digital_supporters: [", W / 2, S(72));
+  ctx.font = mono(9);
+  ctx.fillText('"digital_supporters": [', S(20), S(58));
 
-  ctx.fillStyle = green;
-  ctx.font = `${Math.round(S(11))}px ui-monospace`;
-  let y = S(96);
-  DIGITAL_SUPPORTERS.forEach((name) => {
-    ctx.fillText(`"${name}",`, W / 2, y);
-    y += S(20);
+  // names in two columns
+  ctx.font = mono(8.5);
+  const names = DIGITAL_SUPPORTERS;
+  const half = Math.ceil(names.length / 2);
+  const colX = [S(26), S(126)];
+  const startY = S(76);
+  const rowH = S(13);
+  names.forEach((n, i) => {
+    const col = i < half ? 0 : 1;
+    const row = col === 0 ? i : i - half;
+    const x = colX[col];
+    const y = startY + row * rowH;
+    const txt = `"${n}"`;
+    ctx.fillStyle = green;
+    ctx.fillText(txt, x, y);
+    ctx.fillStyle = punc;
+    ctx.fillText(",", x + ctx.measureText(txt).width, y);
   });
 
+  let y = startY + half * rowH;
   ctx.fillStyle = dim;
-  ctx.font = `${Math.round(S(10))}px ui-monospace`;
-  ctx.fillText("]", W / 2, y + S(4));
+  ctx.font = mono(9);
+  ctx.fillText("]", S(20), y);
 
-  // Face card art credit
-  y += S(40);
+  // face card art credit (compact)
+  y += S(26);
   ctx.fillStyle = dim;
-  ctx.fillText("face_card_art: {", W / 2, y);
-  y += S(20);
+  ctx.font = mono(8.5);
+  ctx.fillText('"face_card_art": [', S(20), y);
+  y += S(13);
   ctx.fillStyle = green;
-  ctx.font = `${Math.round(S(9))}px ui-monospace`;
-  ctx.fillText('"Adrian Kennard (RevK)"', W / 2, y);
-  y += S(16);
-  ctx.fillText('"CC0 Public Domain"', W / 2, y);
-  y += S(16);
-  ctx.fillText('"me.uk/cards"', W / 2, y);
-  y += S(20);
+  ctx.fillText('  "Adrian Kennard (RevK)",', S(20), y);
+  y += S(12);
+  ctx.fillText('  "CC0 Public Domain",', S(20), y);
+  y += S(12);
+  ctx.fillText('  "me.uk/cards"', S(20), y);
+  y += S(13);
   ctx.fillStyle = dim;
-  ctx.font = `${Math.round(S(10))}px ui-monospace`;
-  ctx.fillText("}", W / 2, y);
+  ctx.fillText("]", S(20), y);
 
-  // Footer
+  // footer
   ctx.fillStyle = dim;
-  ctx.font = `${Math.round(S(9))}px ui-monospace`;
-  ctx.fillText("// Dan Berg 2026", W / 2, H - S(24));
+  ctx.font = mono(9);
+  ctx.textAlign = "center";
+  ctx.fillText("// Dan Berg 2026", W / 2, H - S(18));
 }
 
 /* ========= SYSTEM PATCH ========= */
@@ -381,7 +396,7 @@ function runGlitchEffect(ctx, callback) {
 
     // Garbled text
     gCtx.fillStyle = `rgba(0,200,80,${0.3 + Math.random() * 0.5})`;
-    gCtx.font = `${12 + Math.floor(Math.random() * 16)}px ui-monospace`;
+    gCtx.font = `${12 + Math.floor(Math.random() * 16)}px Consolas, Inconsolata, ui-monospace`;
     gCtx.textAlign = "left";
     for (let i = 0; i < 3 + Math.floor(frame / 5); i++) {
       const chars = "01{}:\"system_patchPATCH-001featureunlockhiddenchecksum4fva9dc";
@@ -425,7 +440,7 @@ function drawPatchCard(ctx) {
   ctx.setLineDash([]);
 
   const xL = S(28);
-  const mono = (px) => `${Math.round(S(px))}px ui-monospace, monospace`;
+  const mono = (px) => `${Math.round(S(px))}px Consolas, Inconsolata, ui-monospace, monospace`;
 
   // header row: comment left, version right
   ctx.textBaseline = "alphabetic";
@@ -496,12 +511,15 @@ function drawPatchCard(ctx) {
 function drawPatchActivation(ctx) {
   if (!patchActivated) {
     patchActivated = true;
-    // Glitch first, then reveal the patch card.
+    // First time: glitch, then drop straight into Plinko. No switch to flip
+    // on - players turn it OFF to stop.
     runGlitchEffect(ctx, () => {
-      drawPatchCard(ctx);
-      showToyButtons();
+      enablePlinkoMode();
     });
   } else {
+    // Already unlocked: just show the patch card. Don't auto-restart Plinko,
+    // or turning the toggle off (which re-renders this card) would bounce it
+    // straight back on.
     drawPatchCard(ctx);
     showToyButtons();
   }
@@ -664,7 +682,7 @@ function runAsciiMode(ctx) {
   const startY = (H - totalHeight) / 2 + fontSize;
 
   ctx.fillStyle = "#00cc55";
-  ctx.font = `${fontSize}px ui-monospace`;
+  ctx.font = `${fontSize}px Consolas, Inconsolata, ui-monospace`;
   ctx.textAlign = "center";
 
   grid.forEach((line, i) => {
@@ -727,7 +745,7 @@ function runCorruptMode(ctx) {
     // Data overlay - corrupted text appears
     if (step > 30) {
       ctx.fillStyle = `rgba(0,200,80,${Math.random() * 0.6})`;
-      ctx.font = `${Math.round(S(8))}px ui-monospace`;
+      ctx.font = `${Math.round(S(8))}px Consolas, Inconsolata, ui-monospace`;
       ctx.textAlign = "left";
       for (let i = 0; i < Math.floor(step / 10); i++) {
         const chars = "0123456789abcdef{}:\",.nullundefined";
@@ -763,14 +781,48 @@ function stopPlinko() {
   plinkoState = null;
 }
 
+function isPlayableNumber(card) {
+  if (!card || typeof card !== "object") return false;
+  if (String(card.type).toLowerCase() !== "number") return false;
+  const r = String(card.rank || "").toLowerCase();
+  return r === "ace" || /^\d+$/.test(r);
+}
+
+function randomNumberCard() {
+  const ranks = ["2", "3", "4", "5", "6", "7", "8", "9", "10"];
+  const suits = ["clubs", "spades", "hearts", "diamonds"];
+  return {
+    rank: ranks[Math.floor(Math.random() * ranks.length)],
+    suit: suits[Math.floor(Math.random() * suits.length)],
+    type: "number",
+  };
+}
+
 function startPlinkoFromCurrentCard() {
   let card;
   try {
     card = JSON.parse(ta.value.trim());
   } catch {
-    card = { rank: "7", suit: "clubs", type: "number" };
+    card = null;
   }
+  // Plinko needs a number card. If the current card is a face, back, words,
+  // or anything non-numeric, play over a random number card instead.
+  if (!isPlayableNumber(card)) card = randomNumberCard();
   runPlinkoMode(CANVAS.getContext("2d"), card);
+}
+
+// Turn Plinko on automatically (used when the System Patch is applied).
+function enablePlinkoMode() {
+  showToyButtons();
+  plinkoMode = true;
+  const tgl = document.getElementById("plinkoToggle");
+  if (tgl) {
+    tgl.classList.add("on");
+    tgl.setAttribute("aria-checked", "true");
+    const st = tgl.querySelector(".toggle-state");
+    if (st) st.textContent = "ON";
+  }
+  startPlinkoFromCurrentCard();
 }
 
 function runPlinkoMode(ctx, card) {
@@ -797,7 +849,7 @@ function runPlinkoMode(ctx, card) {
     ctx.fillRect(0, 0, W, H);
     ctx.textAlign = "center";
     ctx.fillStyle = "#00cc55";
-    ctx.font = `${Math.round(S(12))}px ui-monospace`;
+    ctx.font = `${Math.round(S(12))}px Consolas, Inconsolata, ui-monospace`;
     ctx.fillText("need a number card for plinko", W / 2, H / 2);
     return;
   }
@@ -936,7 +988,7 @@ function runPlinkoMode(ctx, card) {
       if (isBrown(suit)) {
         drawPooPip(ctx, px, py, pegRadius * 1.8);
       } else {
-        ctx.font = `${Math.round(pegRadius * 2)}px ui-monospace`;
+        ctx.font = `${Math.round(pegRadius * 2)}px Consolas, Inconsolata, ui-monospace`;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.fillText(suitChar(suit), px, py);
@@ -961,7 +1013,7 @@ function runPlinkoMode(ctx, card) {
     ctx.lineTo(W, slotFloor);
     ctx.stroke();
     // Slot labels — large, BENEATH the buckets, suit-colored
-    ctx.font = `bold ${Math.round(S(14))}px ui-monospace`;
+    ctx.font = `bold ${Math.round(S(14))}px Consolas, Inconsolata, ui-monospace`;
     ctx.textAlign = "center";
     ctx.textBaseline = "top";
     for (let i = 0; i < slotCount; i++) {
@@ -1072,7 +1124,7 @@ function runPlinkoMode(ctx, card) {
       if (p.fade <= 0) return false;
       ctx.globalAlpha = p.fade / 40;
       ctx.fillStyle = color;
-      ctx.font = `bold ${Math.round(S(12))}px ui-monospace`;
+      ctx.font = `bold ${Math.round(S(12))}px Consolas, Inconsolata, ui-monospace`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillText(`+${p.pts}`, p.x, p.y - (40 - p.fade) * 1.2);
@@ -1099,13 +1151,13 @@ function runPlinkoMode(ctx, card) {
       ctx.fillStyle = "rgba(0,0,0,0.5)";
       ctx.fillRect(W / 2 - S(80), H / 2 - S(30), S(160), S(60));
       ctx.fillStyle = "#ff8800";
-      ctx.font = `${Math.round(S(16))}px ui-monospace`;
+      ctx.font = `${Math.round(S(16))}px Consolas, Inconsolata, ui-monospace`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillText(`${st.score} PTS`, W / 2, H / 2 - S(6));
       if (st.score >= plinkoHighScore && st.score > 0) {
         ctx.fillStyle = "#00cc55";
-        ctx.font = `${Math.round(S(9))}px ui-monospace`;
+        ctx.font = `${Math.round(S(9))}px Consolas, Inconsolata, ui-monospace`;
         ctx.fillText("NEW HIGH SCORE!", W / 2, H / 2 + S(16));
       }
     }
@@ -1149,40 +1201,83 @@ function renderCard(json) {
     return;
   }
 
+  // Sandbox fallback: a card with a rank and suit but no recognised type
+  // still renders as a number card, so experiments like {"rank":"12",
+  // "suit":"diamonds"} just work.
+  if (card.rank != null && card.suit) {
+    drawNumber(ctx, card.rank, card.suit);
+    return;
+  }
+
   ctx.fillStyle = "#333";
-  ctx.font = `${Math.round(S(22))}px ui-monospace`;
+  ctx.font = `${Math.round(S(22))}px Consolas, Inconsolata, ui-monospace`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText("Invalid card", W / 2, H / 2);
 }
 
+/* Sandbox: build a centred grid of pip positions for any count (e.g. 12, 38).
+   Standard 1-10 use the hand-tuned LAYOUTS; anything else gets a grid so the
+   pips actually render in the middle of the card, not just the corners. */
+const PIP_AREA = { x0: 46, x1: 194, y0: 64, y1: 272 }; // base 240x336 coords
+function gridLayout(n) {
+  const cols = Math.ceil(Math.sqrt(n));
+  const rows = Math.ceil(n / cols);
+  const { x0, x1, y0, y1 } = PIP_AREA;
+  const cw = (x1 - x0) / cols;
+  const ch = (y1 - y0) / rows;
+  const cx = (x0 + x1) / 2;
+  const pts = [];
+  for (let i = 0; i < n; i++) {
+    const r = Math.floor(i / cols);
+    const c = i % cols;
+    const rowCount = r === rows - 1 ? n - r * cols : cols;
+    const rowStartX = cx - (rowCount * cw) / 2 + cw / 2;
+    pts.push([rowStartX + c * cw, y0 + ch / 2 + r * ch]);
+  }
+  return { layout: layoutScaled(pts), cellBase: Math.min(cw, ch) };
+}
+
 function drawNumber(ctx, rank, suit) {
   const color = suitColor(suit);
-  const cornerFont = `${Math.round(S(CARD_SCALE.corner))}px ui-monospace`;
-  const suitSmall = `${Math.round(S(CARD_SCALE.cornerSuit))}px ui-monospace`;
-  const pipFont = `${Math.round(S(CARD_SCALE.pips))}px ui-monospace`;
+  const cornerFont = `${Math.round(S(CARD_SCALE.corner))}px Consolas, Inconsolata, ui-monospace`;
+  const suitSmall = `${Math.round(S(CARD_SCALE.cornerSuit))}px Consolas, Inconsolata, ui-monospace`;
   const pad = S(CARD_SCALE.cornerPad);
 
-  const rankText = String(rank)
-    .toUpperCase()
-    .replace(/^ACE$/, "A")
-    .replace(/^A$/, "A");
+  const rankText = String(rank).toUpperCase().replace(/^ACE$/, "A");
   drawCornerPair(ctx, rankText, suit, color, pad, cornerFont, suitSmall);
 
+  // Standard ranks use the tuned layouts; any other positive number gets a
+  // generated grid, with pip size shrinking to fit the count.
   const key = String(rank).toLowerCase();
-  const layout = LAYOUTS[key];
-  if (isBrown(suit)) {
-    drawPooPipsCentered(ctx, layout, color);
+  let layout, pipPx;
+  if (LAYOUTS[key]) {
+    layout = LAYOUTS[key];
+    pipPx = S(CARD_SCALE.pips);
   } else {
-    drawPipsCentered(ctx, layout, suit, color, pipFont);
+    const n = parseInt(rank, 10);
+    if (Number.isFinite(n) && n > 0) {
+      const g = gridLayout(Math.min(n, 200)); // cap silly inputs
+      layout = g.layout;
+      pipPx = Math.min(S(CARD_SCALE.pips), S(g.cellBase * 0.62));
+    } else {
+      layout = [];
+      pipPx = S(CARD_SCALE.pips);
+    }
+  }
+
+  if (isBrown(suit)) {
+    drawPooPipsCentered(ctx, layout, color, pipPx * 0.5);
+  } else {
+    drawPipsCentered(ctx, layout, suit, color, `${Math.round(pipPx)}px Consolas, Inconsolata, ui-monospace`);
   }
 }
 
 function drawFace(ctx, rank, suit) {
   const color = suitColor(suit);
-  const cornerFont = `${Math.round(S(CARD_SCALE.corner))}px ui-monospace`;
-  const suitSmall = `${Math.round(S(CARD_SCALE.cornerSuit))}px ui-monospace`;
-  const centerFont = `${Math.round(S(CARD_SCALE.faceCenter))}px ui-monospace`;
+  const cornerFont = `${Math.round(S(CARD_SCALE.corner))}px Consolas, Inconsolata, ui-monospace`;
+  const suitSmall = `${Math.round(S(CARD_SCALE.cornerSuit))}px Consolas, Inconsolata, ui-monospace`;
+  const centerFont = `${Math.round(S(CARD_SCALE.faceCenter))}px Consolas, Inconsolata, ui-monospace`;
   const pad = S(CARD_SCALE.cornerPad);
   const letter = (rank || "?")[0].toUpperCase().replace("A", "A");
 
@@ -1208,11 +1303,11 @@ function drawFace(ctx, rank, suit) {
 
 function drawJoker(ctx, card) {
   ctx.fillStyle = "#900";
-  ctx.font = `${Math.round(S(40))}px ui-monospace`;
+  ctx.font = `${Math.round(S(40))}px Consolas, Inconsolata, ui-monospace`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText("JOKER", W / 2, H / 2);
-  ctx.font = `${Math.round(S(12))}px ui-monospace`;
+  ctx.font = `${Math.round(S(12))}px Consolas, Inconsolata, ui-monospace`;
   if (card.payload) {
     const line = String(card.payload).replace(/\n/g, " ");
     ctx.fillText(line, W / 2, H / 2 + S(34));
@@ -1550,7 +1645,8 @@ const EXAMPLE_DECK = (() => {
     numbers.forEach((rank) => deck.push({ rank, suit, type: "number" }));
     faces.forEach((rank) => deck.push({ rank, suit, type: "face" }));
   });
-  deck.push(EXAMPLES["Back"]); // include a card back
+  // include the card back several times so it turns up roughly 1 in 10
+  for (let i = 0; i < 5; i++) deck.push(EXAMPLES["Back"]);
   return deck;
 })();
 
