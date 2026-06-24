@@ -404,78 +404,106 @@ function runGlitchEffect(ctx, callback) {
   glitch();
 }
 
-function drawPatchActivation(ctx) {
+/* The patch card, drawn in the deck's own visual grammar: a syntax-
+   coloured JSON object (orange keys, green values) on black. */
+function drawPatchCard(ctx) {
+  const green = "#00cc55";
+  const orange = "#ff8800";
+  const punc = "#5a615a";
+  const dim = "rgba(0,204,85,0.45)";
+  const ink = "rgba(255,255,255,0.88)";
+
   ctx.clearRect(0, 0, W, H);
   ctx.fillStyle = "#000";
   ctx.fillRect(0, 0, W, H);
 
-  const green = "#00cc55";
-  const orange = "#ff8800";
-  const dim = "rgba(0,204,85,0.4)";
+  // dashed frame
+  ctx.strokeStyle = "rgba(0,204,85,0.30)";
+  ctx.lineWidth = 1;
+  ctx.setLineDash([S(4), S(4)]);
+  ctx.strokeRect(S(12), S(12), W - S(24), H - S(24));
+  ctx.setLineDash([]);
 
+  const xL = S(28);
+  const mono = (px) => `${Math.round(S(px))}px ui-monospace, monospace`;
+
+  // header row: comment left, version right
+  ctx.textBaseline = "alphabetic";
+  ctx.textAlign = "left";
+  ctx.font = mono(11);
+  ctx.fillStyle = dim;
+  ctx.fillText("// SYSTEM PATCH", xL, S(42));
+  ctx.textAlign = "right";
+  ctx.fillStyle = orange;
+  ctx.fillText("v1.1", W - xL, S(42));
+
+  // helper: draw a key/value JSON line with aligned colons
+  ctx.textAlign = "left";
+  const lh = S(24);
+  function line(k, v, y, last) {
+    let x = S(34);
+    ctx.font = mono(13);
+    ctx.fillStyle = orange;
+    const keyText = `"${k}"`.padEnd(10);
+    ctx.fillText(keyText, x, y);
+    x += ctx.measureText(keyText).width;
+    ctx.fillStyle = punc;
+    ctx.fillText(": ", x, y);
+    x += ctx.measureText(": ").width;
+    ctx.fillStyle = green;
+    ctx.fillText(`"${v}"`, x, y);
+    x += ctx.measureText(`"${v}"`).width;
+    if (!last) {
+      ctx.fillStyle = punc;
+      ctx.fillText(",", x, y);
+    }
+  }
+
+  let y = S(92);
+  ctx.font = mono(14);
+  ctx.fillStyle = punc;
+  ctx.fillText("{", xL, y);
+  y += lh;
+  line("status", "applied", y);
+  y += lh;
+  line("checksum", "ok", y);
+  y += lh;
+  line("unlocked", "plinko", y, true);
+  y += lh;
+  ctx.font = mono(14);
+  ctx.fillStyle = punc;
+  ctx.fillText("}", xL, y);
+
+  // status check
+  y += lh * 2.2;
+  ctx.font = mono(12);
+  ctx.fillStyle = green;
+  ctx.textAlign = "center";
+  ctx.fillText("\u2713 patch applied", W / 2, y);
+
+  // call to action - centred so it can't run off an edge
+  y += lh * 1.7;
+  ctx.font = mono(13);
+  ctx.fillStyle = orange;
+  ctx.fillText("\u203a flip Plinko on to play", W / 2, y);
+
+  // footer flavour
+  ctx.font = mono(9);
+  ctx.fillStyle = dim;
+  ctx.fillText("4fva9dc2b8e19a", W / 2, H - S(24));
+}
+
+function drawPatchActivation(ctx) {
   if (!patchActivated) {
     patchActivated = true;
-
-    // Run glitch first, then show activation screen
+    // Glitch first, then reveal the patch card.
     runGlitchEffect(ctx, () => {
-      ctx.clearRect(0, 0, W, H);
-      ctx.fillStyle = "#000";
-      ctx.fillRect(0, 0, W, H);
-      ctx.textAlign = "center";
-
-      ctx.fillStyle = orange;
-      ctx.font = `${Math.round(S(16))}px ui-monospace`;
-      ctx.fillText("SYSTEM PATCHED!", W / 2, S(50));
-
-      ctx.fillStyle = green;
-      ctx.font = `${Math.round(S(10))}px ui-monospace`;
-      let y = S(90);
-      const lines = [
-        "$ patch v1.1 applied",
-        "",
-        "> verifying 4fva9dc2b8e19a",
-        "> checksum [ OK ]",
-        "",
-        "new toys unlocked:",
-        "",
-      ];
-      lines.forEach((line) => {
-        ctx.fillText(line, W / 2, y);
-        y += S(16);
-      });
-
-      // Toy list
-      ctx.fillStyle = orange;
-      ctx.font = `${Math.round(S(11))}px ui-monospace`;
-      const toys = [
-        '+ "ascii" - text art mode',
-        '+ "corrupt" - data decay',
-        '+ "plinko" - pip pinball',
-      ];
-      toys.forEach((toy) => {
-        ctx.fillText(toy, W / 2, y);
-        y += S(20);
-      });
-
-      y += S(16);
-      ctx.fillStyle = dim;
-      ctx.font = `${Math.round(S(9))}px ui-monospace`;
-      ctx.fillText("type a toy name and hit render", W / 2, y);
-
-      // Show toy buttons
+      drawPatchCard(ctx);
       showToyButtons();
     });
   } else {
-    ctx.textAlign = "center";
-    ctx.fillStyle = dim;
-    ctx.font = `${Math.round(S(12))}px ui-monospace`;
-    ctx.fillText("SYSTEM PATCH v1.1", W / 2, S(50));
-    ctx.fillStyle = green;
-    ctx.font = `${Math.round(S(10))}px ui-monospace`;
-    ctx.fillText("patch already applied", W / 2, S(80));
-    ctx.fillStyle = dim;
-    ctx.font = `${Math.round(S(9))}px ui-monospace`;
-    ctx.fillText("toys: ascii / corrupt / plinko", W / 2, S(104));
+    drawPatchCard(ctx);
+    showToyButtons();
   }
 }
 
