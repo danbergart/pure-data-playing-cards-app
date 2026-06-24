@@ -1,15 +1,20 @@
 :root {
-  --bg: #eee; /* page */
-  --panel: #000; /* editor */
-  --card: #fff; /* canvas background */
-  --ink: #111; /* UI text */
-  --muted: #777;
-  --line: #d0d0d0;
-  --btn: #202020;
-  --btnText: #fff;
-  --btnPrimary: #111;
-  --btnPrimaryText: #fff;
+  --bg: #0a0c0d;
+  --bg-2: #0e1112;
+  --panel: #000000;
+  --surface: #131617;
+  --line: rgba(255, 255, 255, 0.13);
+  --line-soft: rgba(255, 255, 255, 0.07);
+  --ink: #e7eae6;
+  --muted: #79817a;
+  --muted-2: #4d534e;
+  --orange: #ff8800;
+  --orange-soft: rgba(255, 136, 0, 0.14);
+  --green: #00cc55;
+  --green-soft: rgba(0, 204, 85, 0.14);
   --radius: 12px;
+  --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco,
+    "Courier New", monospace;
 }
 
 * {
@@ -19,200 +24,592 @@
 html,
 body {
   margin: 0;
+  padding: 0;
+}
+
+body {
+  min-height: 100vh;
   background: var(--bg);
+  /* faint terminal grid, very subtle so it never reads as gimmicky */
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+  background-size: 34px 34px;
   color: var(--ink);
-  font: 16px/1.45 ui-monospace, SFMono-Regular, Menlo, Monaco, "Courier New",
-    monospace;
-}
-
-.container {
-  max-width: 940px;
-  margin: 24px auto 64px;
-  padding: 0 16px;
-}
-
-.stack > * {
-  margin-bottom: 22px;
-}
-
-.row.center {
-  display: flex;
-  justify-content: center;
-  align-items: center;
+  font-family: var(--mono);
+  font-size: 16px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
 }
 
 [hidden] {
   display: none !important;
 }
 
-.gap {
-  gap: 12px;
+/* ============ LAYOUT ============ */
+.app {
+  width: 100%;
+  max-width: 600px;
+  margin: 0 auto;
+  min-height: 100vh;
+  padding: clamp(20px, 5vw, 40px) clamp(16px, 4vw, 24px) 56px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
 }
 
-.gap-lg {
-  gap: 20px;
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ============ HEADER ============ */
+.masthead {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.brandline {
+  font-size: clamp(15px, 4vw, 20px);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.b-brace {
+  color: var(--muted-2);
+}
+.b-key {
+  color: var(--orange);
+}
+.b-punc {
+  color: var(--muted);
+}
+.b-val {
+  color: var(--green);
+}
+.tagline {
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--muted);
+  letter-spacing: 0.1px;
+}
+.pack-link {
+  color: var(--ink);
+  text-decoration: none;
+  border-bottom: 1px solid var(--orange);
+  padding-bottom: 1px;
+  white-space: nowrap;
+}
+.pack-link:hover {
+  color: var(--orange);
+}
+
+/* ============ CONSOLE WINDOW ============ */
+.console {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: linear-gradient(180deg, var(--bg-2), var(--bg));
+  overflow: hidden;
+  box-shadow: 0 24px 60px -28px rgba(0, 0, 0, 0.9);
+}
+.titlebar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 16px;
+  border-bottom: 1px solid var(--line-soft);
+  background: rgba(255, 255, 255, 0.015);
+}
+.titlebar .dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: #2c302d;
+}
+.titlebar .dot:nth-child(1) {
+  background: #3a2417;
+}
+.titlebar .titlepath {
+  margin-left: 8px;
+  font-size: 12px;
+  color: var(--muted-2);
+  letter-spacing: 0.3px;
+}
+.console-body {
+  padding: clamp(16px, 4vw, 22px);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* ============ SCAN HERO ============ */
+.scan-hero {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  padding: 18px 20px;
+  border: 1px solid rgba(255, 136, 0, 0.45);
+  border-radius: 14px;
+  background:
+    radial-gradient(120% 140% at 0% 0%, var(--orange-soft), transparent 60%),
+    #141210;
+  color: var(--ink);
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  transition: border-color 0.18s ease, transform 0.06s ease,
+    box-shadow 0.18s ease, background 0.18s ease;
+}
+.scan-hero:hover {
+  border-color: var(--orange);
+  box-shadow: 0 0 0 1px rgba(255, 136, 0, 0.35),
+    0 18px 40px -22px rgba(255, 136, 0, 0.55);
+}
+.scan-hero:active {
+  transform: translateY(1px);
+}
+.scan-icon {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 11px;
+  background: var(--orange);
+  color: #120a00;
+}
+.scan-icon svg {
+  width: 26px;
+  height: 26px;
+}
+.scan-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.scan-label {
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.scan-sub {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.scan-go {
+  flex: 0 0 auto;
+  font-size: 20px;
+  color: var(--orange);
+  transition: transform 0.18s ease;
+}
+.scan-hero:hover .scan-go {
+  transform: translateX(3px);
+}
+
+/* ============ EXAMPLES (secondary) ============ */
+.examples-btn {
+  appearance: none;
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 6px 10px;
+  margin: -4px 0 -2px;
+  background: none;
+  border: none;
+  border-radius: 8px;
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+.examples-btn:hover {
+  color: var(--green);
+}
+.examples-btn .ex-icon {
+  font-size: 14px;
+}
+
+/* ============ EDITOR (de-emphasised / advanced) ============ */
+.editor-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.editor-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--muted);
+  letter-spacing: 0.3px;
+}
+.editor-label .el-prompt {
+  color: var(--green);
+  font-weight: 700;
+}
+.editor-label .el-tag {
+  font-size: 10.5px;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--muted-2);
+  border: 1px solid var(--line-soft);
+  border-radius: 5px;
+  padding: 1px 6px;
+}
+.editor {
+  width: 100%;
+  min-height: 116px;
+  background: var(--panel);
+  color: #d8efe0;
+  caret-color: var(--green);
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  padding: 14px 16px;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.6;
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.editor::placeholder {
+  color: #3c423c;
+}
+.editor:focus {
+  border-color: rgba(0, 204, 85, 0.55);
+  box-shadow: 0 0 0 1px rgba(0, 204, 85, 0.25);
+}
+
+/* ============ BUTTONS ============ */
+.btn {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  padding: 12px 20px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  border-radius: 11px;
+  font-family: inherit;
+  font-size: 14.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease,
+    transform 0.06s ease;
+}
+.btn:hover {
+  border-color: rgba(255, 255, 255, 0.28);
+  background: #181b1c;
+}
+.btn:active {
+  transform: translateY(1px);
+}
+.btn.primary {
+  background: var(--green);
+  color: #04210f;
+  border-color: var(--green);
+  font-weight: 700;
+}
+.btn.primary:hover {
+  background: #11dd64;
+  border-color: #11dd64;
+}
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.render-row {
+  display: flex;
   flex-wrap: wrap;
+  gap: 12px;
+  justify-content: flex-start;
+  align-items: center;
+}
+.render-btn {
+  min-width: 168px;
+  padding: 13px 26px;
+  font-size: 15px;
 }
 
-/* Plinko toggle switch */
+/* ============ CARD STAGE / PLACEHOLDER ============ */
+.stage-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  margin-top: 2px;
+}
+.card-stage {
+  position: relative;
+  width: min(360px, 82vw);
+  aspect-ratio: 360 / 528;
+}
+.card-empty {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-radius: 16px;
+  border: 1px dashed rgba(0, 204, 85, 0.28);
+  background:
+    repeating-linear-gradient(
+      45deg,
+      rgba(0, 204, 85, 0.04) 0,
+      rgba(0, 204, 85, 0.04) 2px,
+      transparent 2px,
+      transparent 9px
+    ),
+    #0c0f0e;
+  color: var(--muted);
+  text-align: center;
+  padding: 16px;
+}
+.ce-brace {
+  font-size: 34px;
+  font-weight: 700;
+  color: rgba(0, 204, 85, 0.6);
+  letter-spacing: 2px;
+}
+.ce-line {
+  font-size: 14px;
+  font-weight: 600;
+  color: #9aa39c;
+  text-transform: lowercase;
+  letter-spacing: 0.5px;
+}
+.ce-sub {
+  font-size: 11.5px;
+  color: var(--muted-2);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.ce-cursor {
+  display: inline-block;
+  width: 7px;
+  height: 13px;
+  background: var(--green);
+  animation: blink 1.05s steps(1) infinite;
+}
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
+#cardCanvas {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  border-radius: 16px;
+  box-shadow: 0 26px 60px -26px rgba(0, 0, 0, 0.95),
+    0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+/* ============ PLINKO — SCORE CHIPS ============ */
+.scores-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.score-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 10px;
+  background: #0c0f0e;
+  border: 1px solid rgba(0, 204, 85, 0.4);
+  color: var(--green);
+  padding: 9px 16px;
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  box-shadow: inset 0 0 18px -10px rgba(0, 204, 85, 0.6);
+}
+.score-chip .score-label {
+  color: var(--muted);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 1.2px;
+}
+
+/* ============ PLINKO — DROP ROW ============ */
+.drop-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+/* ============ PLINKO — TOGGLE SWITCH ============ */
 .toggle-switch {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 14px;
-  background: #202020;
+  gap: 11px;
+  padding: 9px 14px;
+  min-height: 46px;
+  background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: 11px;
   cursor: pointer;
-  color: #fff;
+  color: var(--ink);
   user-select: none;
-  font: inherit;
+  font-family: inherit;
+  transition: border-color 0.18s ease, background 0.18s ease;
+}
+.toggle-switch:hover {
+  border-color: rgba(0, 204, 85, 0.45);
 }
 .toggle-switch .toggle-label {
   font-weight: 600;
-  letter-spacing: 0.5px;
+  font-size: 13px;
+  letter-spacing: 0.4px;
+  color: var(--muted);
 }
 .toggle-switch .toggle-track {
   position: relative;
-  width: 40px;
+  width: 42px;
   height: 22px;
-  background: #555;
+  background: #2a2e2b;
+  border: 1px solid var(--line-soft);
   border-radius: 12px;
-  transition: background 0.2s ease;
+  transition: background 0.2s ease, border-color 0.2s ease;
   flex: 0 0 auto;
 }
 .toggle-switch .toggle-knob {
   position: absolute;
   top: 2px;
   left: 2px;
-  width: 18px;
-  height: 18px;
-  background: #fff;
+  width: 16px;
+  height: 16px;
+  background: #d6dad4;
   border-radius: 50%;
-  transition: left 0.2s ease;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  transition: left 0.2s ease, background 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 .toggle-switch .toggle-state {
-  min-width: 28px;
+  min-width: 26px;
   text-align: left;
-  color: #888;
-  font-size: 13px;
+  color: var(--muted-2);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+.toggle-switch.on {
+  border-color: rgba(0, 204, 85, 0.5);
+  background: var(--green-soft);
+}
+.toggle-switch.on .toggle-label {
+  color: var(--ink);
 }
 .toggle-switch.on .toggle-track {
-  background: #00cc55;
+  background: var(--green);
+  border-color: var(--green);
 }
 .toggle-switch.on .toggle-knob {
-  left: 20px;
+  left: 22px;
+  background: #04210f;
 }
 .toggle-switch.on .toggle-state {
-  color: #00cc55;
+  color: var(--green);
 }
 
-/* Plinko score chips */
-.score-chip {
-  background: #111;
-  color: #00cc55;
-  padding: 10px 18px;
-  border-radius: 10px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 15px;
-  letter-spacing: 0.5px;
-  border: 1px solid var(--line);
-}
-.score-chip .score-label {
-  color: #777;
-  margin-right: 8px;
-  font-size: 12px;
-}
-
-.btn {
-  appearance: none;
-  border: 1px solid var(--line);
-  background: var(--btn);
-  color: var(--btnText);
-  padding: 10px 14px;
-  border-radius: 10px;
-  cursor: pointer;
-}
-.btn.primary {
-  background: var(--btnPrimary);
-  color: var(--btnPrimaryText);
-  border-color: #000;
-}
-.btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.editor {
-  width: 100%;
-  min-height: 180px;
-  background: var(--panel);
-  color: #fff; /* make text visible (white) */
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  padding: 14px;
-  resize: vertical;
-  outline: none;
-}
-
-canvas {
-  background: var(--card);
-  border-radius: 14px;
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.06);
-  width: 360px;
-  height: auto;
-}
-
-/* Camera overlay — sticks to TOP of iframe */
+/* ============ CAMERA OVERLAY ============ */
 #camOverlay {
   position: fixed;
-  inset: 0 0 auto 0;
-  height: 100vh;
-  background: rgba(0, 0, 0, 0.85);
+  inset: 0;
+  background: rgba(4, 6, 5, 0.92);
+  backdrop-filter: blur(6px);
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 12px;
+  justify-content: center;
+  gap: 12px;
+  padding: 16px;
   z-index: 9999;
   overflow: auto;
 }
 #camBox {
-  margin: 0 auto;
-  width: min(720px, 94vw);
-  background: #000;
-  border-radius: 14px;
-  padding: 12px;
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12);
+  margin: auto;
+  width: min(560px, 94vw);
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: 0 30px 80px -30px rgba(0, 0, 0, 0.9);
 }
 #video {
   width: 100%;
   height: auto;
-  border-radius: 10px;
+  border-radius: 11px;
   background: #000;
+  border: 1px solid rgba(0, 204, 85, 0.35);
 }
 #camButtons {
   display: flex;
   gap: 10px;
   justify-content: center;
-  margin-top: 10px;
+  flex-wrap: wrap;
+  margin-top: 14px;
 }
 #camButtons .btn {
-  background: #111;
-}
-#camButtons .primary {
-  background: #0b5;
-  border-color: #0b5;
+  flex: 1 1 auto;
+  min-width: 120px;
 }
 
-@media (max-width: 640px) {
-  .container {
-    padding: 0 12px;
+/* ============ RESPONSIVE ============ */
+@media (max-width: 480px) {
+  .app {
+    gap: 18px;
   }
-  canvas {
-    width: 86vw;
+  .brandline {
+    white-space: normal;
   }
-  .row.center {
-    flex-wrap: wrap;
+  .scan-hero {
+    padding: 16px;
+    gap: 13px;
   }
+  .scan-icon {
+    width: 42px;
+    height: 42px;
+  }
+  .scan-label {
+    font-size: 17px;
+  }
+  .render-btn {
+    width: 100%;
+  }
+  .card-stage {
+    width: min(360px, 90vw);
+  }
+}
+
+/* ============ EMBEDDED (inside Shopify iframe) ============ */
+/* When framed, drop the full-viewport min-heights so the app sizes to its
+   content and the host iframe can auto-resize cleanly (no growth loop). */
+html.embedded,
+html.embedded body,
+html.embedded .app {
+  min-height: 0;
 }
