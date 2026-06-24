@@ -1510,11 +1510,36 @@ renderBtn.addEventListener("click", () => {
   }
 });
 
+/* Examples: cycle through the full standard deck - every number and face
+   card in all four suits, plus a back. No jokers, patch, or credits.
+   Shuffled so each click gives a fresh card until the set is exhausted. */
+const EXAMPLE_DECK = (() => {
+  const suits = ["clubs", "spades", "hearts", "diamonds"];
+  const numbers = ["ace", "2", "3", "4", "5", "6", "7", "8", "9", "10"];
+  const faces = ["jack", "queen", "king"];
+  const deck = [];
+  suits.forEach((suit) => {
+    numbers.forEach((rank) => deck.push({ rank, suit, type: "number" }));
+    faces.forEach((rank) => deck.push({ rank, suit, type: "face" }));
+  });
+  deck.push(EXAMPLES["Back"]); // include a card back
+  return deck;
+})();
+
+let exampleQueue = [];
+function nextExample() {
+  if (exampleQueue.length === 0) {
+    exampleQueue = EXAMPLE_DECK.slice();
+    for (let i = exampleQueue.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [exampleQueue[i], exampleQueue[j]] = [exampleQueue[j], exampleQueue[i]];
+    }
+  }
+  return exampleQueue.pop();
+}
+
 examplesBtn.addEventListener("click", () => {
-  const keys = Object.keys(EXAMPLES);
-  const key = keys[Math.floor(Math.random() * keys.length)];
-  const json = JSON.stringify(EXAMPLES[key], null, 2);
-  ta.value = json;
+  ta.value = JSON.stringify(nextExample(), null, 2);
 });
 
 scanBtn.addEventListener("click", async () => {
