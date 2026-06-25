@@ -22,6 +22,14 @@ CANVAS.height = 528 * DPR;
 const W = CANVAS.width; // 360 * DPR
 const H = CANVAS.height; // 528 * DPR
 
+// Build/version tag - bumped on every handover so the latest deploy can be
+// confirmed past the GitHub Pages cache. Shown subtly at the foot of the app.
+const APP_VERSION = "v1";
+(function () {
+  const bt = document.getElementById("buildTag");
+  if (bt) bt.textContent = APP_VERSION;
+})();
+
 const suitChar = (s) =>
   ({ clubs: "♣", spades: "♠", hearts: "♥", diamonds: "♦", poo: "💩" }[
     (s || "").toLowerCase()
@@ -961,8 +969,94 @@ function enablePlinkoMode() {
   startPlinkoFromCurrentCard();
 }
 
-function runPlinkoMode(ctx, card) {
-  // Stop any existing game
+/* Arcade-style end-of-round scoreboard in the pure-data aesthetic: an opaque
+   black panel, monospace, orange labels and bright-green score, with corner
+   brackets for an arcade feel. */
+function drawScoreboard(ctx, score, high) {
+  const isNewHigh = score >= high && score > 0;
+  const pw = S(216);
+  const ph = isNewHigh ? S(168) : S(146);
+  const px = (W - pw) / 2;
+  const py = (H - ph) / 2;
+  const orange = "#ff8800";
+  const green = "#46e285";
+  const dim = "#7c8a7c";
+  const mono = (n) => `${Math.round(S(n))}px ui-monospace, monospace`;
+
+  ctx.save();
+  ctx.textAlign = "center";
+  ctx.textBaseline = "alphabetic";
+
+  // opaque rounded panel + orange border
+  const r = S(12);
+  ctx.beginPath();
+  ctx.moveTo(px + r, py);
+  ctx.arcTo(px + pw, py, px + pw, py + ph, r);
+  ctx.arcTo(px + pw, py + ph, px, py + ph, r);
+  ctx.arcTo(px, py + ph, px, py, r);
+  ctx.arcTo(px, py, px + pw, py, r);
+  ctx.closePath();
+  ctx.fillStyle = "#08090a";
+  ctx.fill();
+  ctx.lineWidth = S(2);
+  ctx.strokeStyle = orange;
+  ctx.stroke();
+
+  // arcade corner brackets
+  ctx.strokeStyle = green;
+  ctx.lineWidth = S(2);
+  const b = S(12);
+  const ins = S(9);
+  [
+    [px + ins, py + ins, 1, 1],
+    [px + pw - ins, py + ins, -1, 1],
+    [px + ins, py + ph - ins, 1, -1],
+    [px + pw - ins, py + ph - ins, -1, -1],
+  ].forEach(([cx, cy, sx, sy]) => {
+    ctx.beginPath();
+    ctx.moveTo(cx, cy + sy * b);
+    ctx.lineTo(cx, cy);
+    ctx.lineTo(cx + sx * b, cy);
+    ctx.stroke();
+  });
+
+  // title
+  ctx.fillStyle = orange;
+  ctx.font = `bold ${mono(13)}`;
+  ctx.fillText("GAME OVER", W / 2, py + S(30));
+
+  // divider
+  ctx.strokeStyle = "rgba(255,136,0,0.35)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(px + S(22), py + S(40));
+  ctx.lineTo(px + pw - S(22), py + S(40));
+  ctx.stroke();
+
+  // SCORE label + big value
+  ctx.fillStyle = dim;
+  ctx.font = mono(9);
+  ctx.fillText("SCORE", W / 2, py + S(58));
+  ctx.fillStyle = green;
+  ctx.font = `bold ${mono(40)}`;
+  ctx.fillText(String(score), W / 2, py + S(102));
+
+  // HIGH row
+  ctx.fillStyle = dim;
+  ctx.font = mono(10);
+  ctx.fillText(`HIGH   ${high}`, W / 2, py + S(126));
+
+  // new-high banner
+  if (isNewHigh) {
+    ctx.fillStyle = green;
+    ctx.font = `bold ${mono(11)}`;
+    ctx.fillText("\u2605 NEW HIGH SCORE \u2605", W / 2, py + S(150));
+  }
+
+  ctx.restore();
+}
+
+function runPlinkoMode(ctx, card) {  // Stop any existing game
   if (plinkoAnimId) { cancelAnimationFrame(plinkoAnimId); plinkoAnimId = null; }
 
   // Make sure the card is currently rendered on the canvas, then snapshot it
@@ -1010,10 +1104,12 @@ function runPlinkoMode(ctx, card) {
   const slotScores = [10, 25, 50, 100, 50, 25, 10];
   const slotFloor = H - S(28);
 
-  // Launcher - moves left/right
+  // Launcher - moves left/right (15% faster than before)
   let launcherX = W / 2;
-  let launcherDir = 1.5;
+  let launcherDir = 1.725;
   const launcherY = S(18);
+  // Carries fractional physics sub-steps across frames (see SPEED below).
+  let stepAcc = 0;
 
   // Game state
   plinkoState = {
@@ -1188,11 +1284,14 @@ function runPlinkoMode(ctx, card) {
       ctx.stroke();
     });
 
-    // Physics runs several sub-steps per frame, so the game plays much faster
-    // (about 5x) without balls tunnelling through pegs. Each sub-step is the
-    // original small time-step; we just do more of them per rendered frame.
-    const SPEED = 5;
-    for (let step = 0; step < SPEED; step++) {
+    // Physics runs sub-steps per frame for speed without tunnelling. SPEED is
+    // the average sub-steps/frame; a carried accumulator allows a fractional
+    // value (3.5 = 30% slower than the previous 5).
+    const SPEED = 3.5;
+    stepAcc += SPEED;
+    const steps = Math.floor(stepAcc);
+    stepAcc -= steps;
+    for (let step = 0; step < steps; step++) {
       // Ball-to-ball collisions: equal-mass elastic response.
       for (let i = 0; i < st.balls.length; i++) {
         const a = st.balls[i];
@@ -1328,18 +1427,7 @@ function runPlinkoMode(ctx, card) {
     }
 
     if (st.roundOver) {
-      ctx.fillStyle = "rgba(0,0,0,0.5)";
-      ctx.fillRect(W / 2 - S(80), H / 2 - S(30), S(160), S(60));
-      ctx.fillStyle = "#ff8800";
-      ctx.font = `${Math.round(S(16))}px ui-monospace`;
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText(`${st.score} PTS`, W / 2, H / 2 - S(6));
-      if (st.score >= plinkoHighScore && st.score > 0) {
-        ctx.fillStyle = "#00cc55";
-        ctx.font = `${Math.round(S(9))}px ui-monospace`;
-        ctx.fillText("NEW HIGH SCORE!", W / 2, H / 2 + S(16));
-      }
+      drawScoreboard(ctx, st.score, plinkoHighScore);
     }
 
     plinkoAnimId = requestAnimationFrame(draw);
