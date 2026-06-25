@@ -638,3 +638,84 @@ html.embedded .app {
   padding-right: 2px;
   user-select: none;
 }
+
+/* ===== Global leaderboard overlay (submit + top scores) ===== */
+.lb-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(4, 6, 5, 0.9);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 10px 16px 24px;
+  z-index: 10000;
+  overflow: auto;
+}
+.lb-panel {
+  width: min(360px, 94vw);
+  margin-top: 6vh;
+  background: #08090a;
+  border: 2px solid #ff8800;
+  border-radius: 14px;
+  padding: 20px;
+  font-family: Consolas, "Inconsolata", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  color: #fff;
+  box-shadow: 0 30px 80px -30px rgba(0, 0, 0, 0.9);
+}
+.lb-title {
+  color: #ff8800;
+  font-weight: 700;
+  text-align: center;
+  letter-spacing: 1.5px;
+  font-size: 16px;
+  margin-bottom: 6px;
+}
+.lb-sub {
+  color: #9aa79a;
+  text-align: center;
+  font-size: 12px;
+  margin-bottom: 14px;
+}
+.lb-sub b { color: #46e285; }
+.lb-input {
+  width: 100%;
+  box-sizing: border-box;
+  background: #000;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: #46e285;
+  font-family: inherit;
+  font-size: 16px;
+  text-align: center;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  padding: 10px;
+  border-radius: 8px;
+}
+.lb-input:focus { outline: none; border-color: #46e285; }
+.lb-msg {
+  min-height: 16px;
+  color: #ff8800;
+  font-size: 11px;
+  text-align: center;
+  margin: 8px 0 4px;
+}
+.lb-btns {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 8px;
+}
+.lb-list { font-size: 13px; line-height: 1.5; }
+.lb-rowline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 5px 2px;
+}
+.lb-rank { color: #6f7d6f; width: 22px; }
+.lb-nm { color: #46e285; flex: 1; letter-spacing: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lb-card { color: #9aa79a; }
+.lb-sc { color: #ff8800; font-weight: 700; min-width: 50px; text-align: right; }
+.lb-hl { background: rgba(255, 136, 0, 0.14); border-radius: 4px; }
