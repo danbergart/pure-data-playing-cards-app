@@ -1510,8 +1510,8 @@ function loadAnyImage(urls) {
 function drawJoker(ctx, card) {
   const type = String(card && card.type ? card.type : "joker").toLowerCase();
   loadAnyImage([
-    `faces/${type}.png`, `faces/${type}.svg`,
-    "faces/joker.png", "faces/joker.svg",
+    `faces/${type}.png`, `faces/${type}.jpg`, `faces/${type}.jpeg`, `faces/${type}.svg`,
+    "faces/joker.png", "faces/joker.jpg", "faces/joker.jpeg", "faces/joker.svg",
   ])
     .then((img) => {
       ctx.clearRect(0, 0, W, H);
