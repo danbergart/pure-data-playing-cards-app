@@ -24,7 +24,7 @@ const H = CANVAS.height; // 528 * DPR
 
 // Build/version tag - bumped on every handover so the latest deploy can be
 // confirmed past the GitHub Pages cache. Shown subtly at the foot of the app.
-const APP_VERSION = "v1";
+const APP_VERSION = "v2";
 (function () {
   const bt = document.getElementById("buildTag");
   if (bt) bt.textContent = APP_VERSION;
@@ -911,7 +911,18 @@ function runCorruptMode(ctx) {
 
 /* --- PLINKO MODE --- */
 let plinkoHighScore = 0;
+let plinkoHighCard = ""; // which card the high score was set on
+let plinkoCurrentCard = ""; // card the current game is played on
 let plinkoAnimId = null;
+
+// Short label for a card, e.g. "7♠" / "A♦" - used on the scoreboard.
+function cardShortLabel(card) {
+  if (!card || typeof card !== "object") return "";
+  const sym = { clubs: "\u2663", spades: "\u2660", hearts: "\u2665", diamonds: "\u2666" };
+  const r = String(card.rank || "").toUpperCase();
+  const rank = r === "ACE" ? "A" : r;
+  return rank + (sym[String(card.suit || "").toLowerCase()] || "");
+}
 let plinkoDropBtn = null;
 let plinkoState = null;
 
@@ -942,7 +953,23 @@ function randomNumberCard() {
   };
 }
 
+function plinkoGameInProgress() {
+  return !!(
+    plinkoState &&
+    plinkoState.balls &&
+    plinkoState.balls.length > 0 &&
+    !plinkoState.roundOver
+  );
+}
+
 function startPlinkoFromCurrentCard() {
+  // Warn before discarding a game that's under way.
+  if (plinkoGameInProgress()) {
+    const ok = window.confirm(
+      "Loading a new card will reset your current Plinko game. Continue?"
+    );
+    if (!ok) return;
+  }
   let card;
   try {
     card = JSON.parse(ta.value.trim());
@@ -952,6 +979,7 @@ function startPlinkoFromCurrentCard() {
   // Plinko needs a number card. If the current card is a face, back, words,
   // or anything non-numeric, play over a random number card instead.
   if (!isPlayableNumber(card)) card = randomNumberCard();
+  plinkoCurrentCard = cardShortLabel(card);
   runPlinkoMode(CANVAS.getContext("2d"), card);
 }
 
@@ -972,7 +1000,7 @@ function enablePlinkoMode() {
 /* Arcade-style end-of-round scoreboard in the pure-data aesthetic: an opaque
    black panel, monospace, orange labels and bright-green score, with corner
    brackets for an arcade feel. */
-function drawScoreboard(ctx, score, high) {
+function drawScoreboard(ctx, score, high, highCard) {
   const isNewHigh = score >= high && score > 0;
   const pw = S(216);
   const ph = isNewHigh ? S(168) : S(146);
@@ -1041,10 +1069,11 @@ function drawScoreboard(ctx, score, high) {
   ctx.font = `bold ${mono(40)}`;
   ctx.fillText(String(score), W / 2, py + S(102));
 
-  // HIGH row
+  // HIGH row (with the card the record was set on)
   ctx.fillStyle = dim;
   ctx.font = mono(10);
-  ctx.fillText(`HIGH   ${high}`, W / 2, py + S(126));
+  const highLine = highCard ? `HIGH ${high}  ON ${highCard}` : `HIGH   ${high}`;
+  ctx.fillText(highLine, W / 2, py + S(126));
 
   // new-high banner
   if (isNewHigh) {
@@ -1104,9 +1133,9 @@ function runPlinkoMode(ctx, card) {  // Stop any existing game
   const slotScores = [10, 25, 50, 100, 50, 25, 10];
   const slotFloor = H - S(28);
 
-  // Launcher - moves left/right (15% faster than before)
+  // Launcher - moves left/right (25% faster than before)
   let launcherX = W / 2;
-  let launcherDir = 1.725;
+  let launcherDir = 2.156;
   const launcherY = S(18);
   // Carries fractional physics sub-steps across frames (see SPEED below).
   let stepAcc = 0;
@@ -1286,8 +1315,8 @@ function runPlinkoMode(ctx, card) {  // Stop any existing game
 
     // Physics runs sub-steps per frame for speed without tunnelling. SPEED is
     // the average sub-steps/frame; a carried accumulator allows a fractional
-    // value (3.5 = 30% slower than the previous 5).
-    const SPEED = 3.5;
+    // value (1.75 = half the previous 3.5).
+    const SPEED = 1.75;
     stepAcc += SPEED;
     const steps = Math.floor(stepAcc);
     stepAcc -= steps;
@@ -1359,19 +1388,22 @@ function runPlinkoMode(ctx, card) {  // Stop any existing game
         if (ball.x < ballRadius) { ball.x = ballRadius; ball.vx = Math.abs(ball.vx) * bounceFactor; }
         if (ball.x > W - ballRadius) { ball.x = W - ballRadius; ball.vx = -Math.abs(ball.vx) * bounceFactor; }
 
-        // Landed in slot
+        // Landed in slot - rests where it lands (not snapped to centre)
         if (ball.y >= slotFloor - ballRadius) {
           ball.active = false;
-          const slotIdx = Math.min(slotCount - 1, Math.max(0, Math.floor(ball.x / slotWidth)));
+          const lx = Math.max(ballRadius, Math.min(W - ballRadius, ball.x));
+          const slotIdx = Math.min(slotCount - 1, Math.max(0, Math.floor(lx / slotWidth)));
           const pts = slotScores[slotIdx];
           st.score += pts;
-          const slotCenterX = slotIdx * slotWidth + slotWidth / 2;
-          const existingInSlot = st.landed.filter(
-            (lb) => Math.floor(lb.x / slotWidth) === slotIdx || Math.abs(lb.x - slotCenterX) < slotWidth / 2
-          ).length;
-          const landY = slotFloor - ballRadius - existingInSlot * (ballRadius * 2);
-          st.landed.push({ x: slotCenterX, y: landY });
-          st.popups.push({ x: slotCenterX, y: slotY - S(10), pts, fade: 40 });
+          // Rest at the landing x; stack on top of any ball already there.
+          let landY = slotFloor - ballRadius;
+          st.landed.forEach((lb) => {
+            if (Math.abs(lb.x - lx) < ballRadius * 1.8) {
+              landY = Math.min(landY, lb.y - ballRadius * 1.8);
+            }
+          });
+          st.landed.push({ x: lx, y: landY });
+          st.popups.push({ x: lx, y: slotY - S(10), pts, fade: 40 });
         }
       });
     }
@@ -1421,13 +1453,16 @@ function runPlinkoMode(ctx, card) {  // Stop any existing game
     const allDone = st.ballsRemaining <= 0 && st.balls.length > 0 && st.balls.every((b) => !b.active);
     if (allDone && !st.roundOver) {
       st.roundOver = true;
-      if (st.score > plinkoHighScore) plinkoHighScore = st.score;
+      if (st.score > plinkoHighScore) {
+        plinkoHighScore = st.score;
+        plinkoHighCard = plinkoCurrentCard;
+      }
       plinkoDropBtn.textContent = "AGAIN";
       plinkoDropBtn.disabled = false;
     }
 
     if (st.roundOver) {
-      drawScoreboard(ctx, st.score, plinkoHighScore);
+      drawScoreboard(ctx, st.score, plinkoHighScore, plinkoHighCard);
     }
 
     plinkoAnimId = requestAnimationFrame(draw);
