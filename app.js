@@ -281,10 +281,10 @@ function drawCredits(ctx) {
   ctx.fillStyle = "#000";
   ctx.fillRect(0, 0, W, H);
 
-  const green = "#00cc55";
+  const green = "#46e285";
   const orange = "#ff8800";
-  const dim = "rgba(0,204,85,0.5)";
-  const punc = "#5a615a";
+  const dim = "#6fb98a";
+  const punc = "#828a82";
   const mono = (px) => `${Math.round(S(px))}px ui-monospace, monospace`;
 
   ctx.textBaseline = "alphabetic";
@@ -301,7 +301,7 @@ function drawCredits(ctx) {
   ctx.fillText('"digital_supporters": [', S(20), S(58));
 
   // names in two columns
-  ctx.font = mono(8.5);
+  ctx.font = mono(9);
   const names = DIGITAL_SUPPORTERS;
   const half = Math.ceil(names.length / 2);
   const colX = [S(26), S(126)];
@@ -327,7 +327,7 @@ function drawCredits(ctx) {
   // face card art credit (compact)
   y += S(26);
   ctx.fillStyle = dim;
-  ctx.font = mono(8.5);
+  ctx.font = mono(9);
   ctx.fillText('"face_card_art": [', S(20), y);
   y += S(13);
   ctx.fillStyle = green;
