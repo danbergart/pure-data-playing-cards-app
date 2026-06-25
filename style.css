@@ -626,3 +626,15 @@ html.embedded body,
 html.embedded .app {
   min-height: 0;
 }
+
+/* Subtle build/version tag - low contrast, easy to ignore, there if you look. */
+.buildtag {
+  width: 100%;
+  text-align: right;
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  color: rgba(255, 255, 255, 0.22);
+  margin-top: 6px;
+  padding-right: 2px;
+  user-select: none;
+}
