@@ -13,7 +13,7 @@
   --green: #00cc55;
   --green-soft: rgba(0, 204, 85, 0.14);
   --radius: 12px;
-  --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco,
+  --mono: Consolas, "Inconsolata", ui-monospace, SFMono-Regular, Menlo, Monaco,
     "Courier New", monospace;
 }
 
