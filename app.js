@@ -1188,96 +1188,98 @@ function runPlinkoMode(ctx, card) {
       ctx.stroke();
     });
 
-    // Update active balls
-    // Ball-to-ball collisions: equal-mass elastic response so dropped balls
-    // bounce off each other instead of passing through.
-    for (let i = 0; i < st.balls.length; i++) {
-      const a = st.balls[i];
-      if (!a.active) continue;
-      for (let j = i + 1; j < st.balls.length; j++) {
-        const b = st.balls[j];
-        if (!b.active) continue;
-        const dx = b.x - a.x;
-        const dy = b.y - a.y;
-        const dist = Math.hypot(dx, dy);
-        const minDist = ballRadius * 2;
-        if (dist > 0 && dist < minDist) {
-          const nx = dx / dist;
-          const ny = dy / dist;
-          // push them apart so they don't overlap
-          const overlap = (minDist - dist) / 2;
-          a.x -= nx * overlap;
-          a.y -= ny * overlap;
-          b.x += nx * overlap;
-          b.y += ny * overlap;
-          // exchange velocity along the collision normal
-          const vn = (b.vx - a.vx) * nx + (b.vy - a.vy) * ny;
-          if (vn < 0) {
-            const imp = (-(1 + bounceFactor) * vn) / 2;
-            a.vx -= imp * nx;
-            a.vy -= imp * ny;
-            b.vx += imp * nx;
-            b.vy += imp * ny;
+    // Physics runs several sub-steps per frame, so the game plays much faster
+    // (about 5x) without balls tunnelling through pegs. Each sub-step is the
+    // original small time-step; we just do more of them per rendered frame.
+    const SPEED = 5;
+    for (let step = 0; step < SPEED; step++) {
+      // Ball-to-ball collisions: equal-mass elastic response.
+      for (let i = 0; i < st.balls.length; i++) {
+        const a = st.balls[i];
+        if (!a.active) continue;
+        for (let j = i + 1; j < st.balls.length; j++) {
+          const b = st.balls[j];
+          if (!b.active) continue;
+          const dx = b.x - a.x;
+          const dy = b.y - a.y;
+          const dist = Math.hypot(dx, dy);
+          const minDist = ballRadius * 2;
+          if (dist > 0 && dist < minDist) {
+            const nx = dx / dist;
+            const ny = dy / dist;
+            const overlap = (minDist - dist) / 2;
+            a.x -= nx * overlap;
+            a.y -= ny * overlap;
+            b.x += nx * overlap;
+            b.y += ny * overlap;
+            const vn = (b.vx - a.vx) * nx + (b.vy - a.vy) * ny;
+            if (vn < 0) {
+              const imp = (-(1 + bounceFactor) * vn) / 2;
+              a.vx -= imp * nx;
+              a.vy -= imp * ny;
+              b.vx += imp * nx;
+              b.vy += imp * ny;
+            }
           }
         }
       }
-    }
 
-    st.balls.forEach((ball) => {
-      if (!ball.active) return;
+      // Move + resolve each active ball
+      st.balls.forEach((ball) => {
+        if (!ball.active) return;
 
-      ball.vy += gravity;
-      ball.vx *= friction;
-      ball.x += ball.vx;
-      ball.y += ball.vy;
+        ball.vy += gravity;
+        ball.vx *= friction;
+        ball.x += ball.vx;
+        ball.y += ball.vy;
 
-      // Trail
-      ball.trail.push([ball.x, ball.y]);
-      if (ball.trail.length > 15) ball.trail.shift();
+        ball.trail.push([ball.x, ball.y]);
+        if (ball.trail.length > 18) ball.trail.shift();
 
-      // Peg collision
-      pegs.forEach(([px, py]) => {
-        const bx = ball.x - px;
-        const by = ball.y - py;
-        const dist = Math.sqrt(bx * bx + by * by);
-        const minDist = pegRadius + ballRadius;
-        if (dist < minDist && dist > 0) {
-          const nx = bx / dist;
-          const ny = by / dist;
-          ball.x = px + nx * minDist;
-          ball.y = py + ny * minDist;
-          const dot = ball.vx * nx + ball.vy * ny;
-          ball.vx -= 2 * dot * nx;
-          ball.vy -= 2 * dot * ny;
-          ball.vx *= bounceFactor;
-          ball.vy *= bounceFactor;
-          ball.vx += (Math.random() - 0.5) * 1.2;
+        // Peg collision
+        pegs.forEach(([px, py]) => {
+          const bx = ball.x - px;
+          const by = ball.y - py;
+          const dist = Math.sqrt(bx * bx + by * by);
+          const minDist = pegRadius + ballRadius;
+          if (dist < minDist && dist > 0) {
+            const nx = bx / dist;
+            const ny = by / dist;
+            ball.x = px + nx * minDist;
+            ball.y = py + ny * minDist;
+            const dot = ball.vx * nx + ball.vy * ny;
+            ball.vx -= 2 * dot * nx;
+            ball.vy -= 2 * dot * ny;
+            ball.vx *= bounceFactor;
+            ball.vy *= bounceFactor;
+            ball.vx += (Math.random() - 0.5) * 1.2;
+          }
+        });
+
+        // Wall bounce
+        if (ball.x < ballRadius) { ball.x = ballRadius; ball.vx = Math.abs(ball.vx) * bounceFactor; }
+        if (ball.x > W - ballRadius) { ball.x = W - ballRadius; ball.vx = -Math.abs(ball.vx) * bounceFactor; }
+
+        // Landed in slot
+        if (ball.y >= slotFloor - ballRadius) {
+          ball.active = false;
+          const slotIdx = Math.min(slotCount - 1, Math.max(0, Math.floor(ball.x / slotWidth)));
+          const pts = slotScores[slotIdx];
+          st.score += pts;
+          const slotCenterX = slotIdx * slotWidth + slotWidth / 2;
+          const existingInSlot = st.landed.filter(
+            (lb) => Math.floor(lb.x / slotWidth) === slotIdx || Math.abs(lb.x - slotCenterX) < slotWidth / 2
+          ).length;
+          const landY = slotFloor - ballRadius - existingInSlot * (ballRadius * 2);
+          st.landed.push({ x: slotCenterX, y: landY });
+          st.popups.push({ x: slotCenterX, y: slotY - S(10), pts, fade: 40 });
         }
       });
+    }
 
-      // Wall bounce
-      if (ball.x < ballRadius) { ball.x = ballRadius; ball.vx = Math.abs(ball.vx) * bounceFactor; }
-      if (ball.x > W - ballRadius) { ball.x = W - ballRadius; ball.vx = -Math.abs(ball.vx) * bounceFactor; }
-
-      // Landed in slot - ball stays
-      if (ball.y >= slotFloor - ballRadius) {
-        ball.active = false;
-        const slotIdx = Math.min(slotCount - 1, Math.max(0, Math.floor(ball.x / slotWidth)));
-        const pts = slotScores[slotIdx];
-        st.score += pts;
-
-        // Stack balls in the slot
-        const slotCenterX = slotIdx * slotWidth + slotWidth / 2;
-        const existingInSlot = st.landed.filter(
-          (lb) => Math.floor(lb.x / slotWidth) === slotIdx || Math.abs(lb.x - slotCenterX) < slotWidth / 2
-        ).length;
-        const landY = slotFloor - ballRadius - existingInSlot * (ballRadius * 2);
-
-        st.landed.push({ x: slotCenterX, y: landY });
-        st.popups.push({ x: slotCenterX, y: slotY - S(10), pts, fade: 40 });
-      }
-
-      // Draw trail
+    // Draw active balls once per frame (after the physics sub-steps)
+    st.balls.forEach((ball) => {
+      if (!ball.active) return;
       if (ball.trail.length > 1) {
         ctx.strokeStyle = "rgba(255,255,255,0.1)";
         ctx.lineWidth = ballRadius * 0.8;
@@ -1287,8 +1289,6 @@ function runPlinkoMode(ctx, card) {
         ball.trail.forEach(([tx, ty]) => ctx.lineTo(tx, ty));
         ctx.stroke();
       }
-
-      // Draw ball — suit-colored
       ctx.beginPath();
       ctx.arc(ball.x, ball.y, ballRadius, 0, Math.PI * 2);
       ctx.fillStyle = color;
@@ -1754,6 +1754,11 @@ function buildOverlay() {
 async function openCamera() {
   buildOverlay();
   overlayEl.style.display = "flex";
+  // Bring the overlay into view: scroll our own document to the top, and ask
+  // the host page (if embedded) to scroll the iframe to the top too, so the
+  // camera popup appears high on screen instead of below the fold.
+  try { window.scrollTo(0, 0); } catch {}
+  try { parent?.postMessage?.({ type: "purecode:camera-open" }, "*"); } catch {}
   await startStream();
 }
 function stopCameraOverlay() {
