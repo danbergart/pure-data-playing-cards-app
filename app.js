@@ -1419,13 +1419,17 @@ function buildOverlay() {
 
   captureBtn.addEventListener("click", async () => {
     try {
+      if (!videoEl || !videoEl.videoWidth || videoEl.readyState < 2) {
+        alert("Camera still loading - give it a second, then try again.");
+        return;
+      }
       const b64 = snapshotToBase64();
       await processImageBase64(b64);
-    } catch (e) {
-      console.error(e);
-      alert("Capture failed. Try again.");
-    } finally {
       stopCameraOverlay();
+    } catch (e) {
+      console.error("Capture/OCR error:", e);
+      alert("Capture failed: " + (e && e.message ? e.message : "unknown error"));
+      // leave the camera open so they can retry without reopening
     }
   });
 
@@ -1596,12 +1600,23 @@ function safeJsonGuess(text) {
 
 async function processImageBase64(b64) {
   // Send to Vision backend
-  const res = await fetch(VISION_FN_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ image: b64 }),
-  });
-  const data = await res.json();
+  let res;
+  try {
+    res = await fetch(VISION_FN_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ image: b64 }),
+    });
+  } catch (e) {
+    throw new Error("could not reach the OCR service (network or CORS)");
+  }
+  if (!res.ok) throw new Error("OCR service returned status " + res.status);
+  let data;
+  try {
+    data = await res.json();
+  } catch {
+    throw new Error("OCR service sent an unexpected (non-JSON) response");
+  }
   const snapped = trySnapToDeck(normalizeScanned(String(data.text || "")));
 
   // Put into editor
