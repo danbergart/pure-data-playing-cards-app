@@ -24,7 +24,7 @@ const H = CANVAS.height; // 528 * DPR
 
 // Build/version tag - bumped on every handover so the latest deploy can be
 // confirmed past the GitHub Pages cache. Shown subtly at the foot of the app.
-const APP_VERSION = "v2";
+const APP_VERSION = "v3";
 (function () {
   const bt = document.getElementById("buildTag");
   if (bt) bt.textContent = APP_VERSION;
@@ -933,6 +933,7 @@ function stopPlinko() {
   if (scores) scores.hidden = true;
   const dropRow = document.getElementById("plinkoDropRow");
   if (dropRow) dropRow.hidden = true;
+  if (typeof lbClose === "function") lbClose();
   plinkoState = null;
 }
 
@@ -1085,6 +1086,125 @@ function drawScoreboard(ctx, score, high, highCard) {
   ctx.restore();
 }
 
+/* ============ GLOBAL LEADERBOARD (Supabase) ============ */
+const SUPABASE_URL = "https://kixuxzfowrhvgvxhgmft.supabase.co";
+const SUPABASE_KEY = "sb_publishable_UQ5g1zJ95e9iVxnq3bxenA_8XU0JF_u";
+
+// Best-effort client-side nickname guard (not exhaustive). Server also caps
+// length (1-12) and score (<=5000) so forged requests can't store junk values.
+const BAD_WORDS = [
+  "fuck", "shit", "cunt", "bitch", "nigger", "nigga", "faggot", "retard",
+  "rape", "slut", "whore", "dick", "cock", "pussy", "wank", "twat",
+];
+function cleanNickname(raw) {
+  const n = String(raw || "").trim().replace(/\s+/g, " ").slice(0, 12);
+  if (!n) return null;
+  const low = n.toLowerCase().replace(/[^a-z]/g, "");
+  for (const w of BAD_WORDS) if (low.includes(w)) return null;
+  return n;
+}
+
+function escHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])
+  );
+}
+
+async function submitScore(nickname, score, card) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/pure_data_scores`, {
+    method: "POST",
+    headers: {
+      apikey: SUPABASE_KEY,
+      Authorization: `Bearer ${SUPABASE_KEY}`,
+      "Content-Type": "application/json",
+      Prefer: "return=minimal",
+    },
+    body: JSON.stringify({ nickname, score, card: card || null }),
+  });
+  if (!res.ok) throw new Error("Submit failed (" + res.status + ")");
+}
+
+async function fetchLeaderboard() {
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/pure_data_scores?select=nickname,score,card&order=score.desc,created_at.asc&limit=10`,
+    { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } }
+  );
+  if (!res.ok) throw new Error("Could not load leaderboard (" + res.status + ")");
+  return res.json();
+}
+
+function lbClose() {
+  const o = document.getElementById("lbOverlay");
+  if (o) o.remove();
+}
+function lbBuild(inner) {
+  lbClose();
+  const o = document.createElement("div");
+  o.id = "lbOverlay";
+  o.className = "lb-overlay";
+  o.innerHTML = `<div class="lb-panel">${inner}</div>`;
+  document.body.appendChild(o);
+  o.addEventListener("click", (e) => { if (e.target === o) lbClose(); });
+  return o;
+}
+
+function showSubmitOverlay(score, card) {
+  const o = lbBuild(`
+    <div class="lb-title">SUBMIT SCORE</div>
+    <div class="lb-sub">SCORE <b>${score}</b>${card ? "  &middot;  " + escHtml(card) : ""}</div>
+    <input id="lbNick" class="lb-input" maxlength="12" placeholder="NICKNAME" autocomplete="off" spellcheck="false" />
+    <div class="lb-msg" id="lbMsg"></div>
+    <div class="lb-btns">
+      <button class="btn" id="lbCancel">CANCEL</button>
+      <button class="btn primary" id="lbSend">SUBMIT</button>
+    </div>
+  `);
+  const nick = o.querySelector("#lbNick");
+  const msg = o.querySelector("#lbMsg");
+  nick.focus();
+  o.querySelector("#lbCancel").addEventListener("click", lbClose);
+  const send = o.querySelector("#lbSend");
+  send.addEventListener("click", async () => {
+    const clean = cleanNickname(nick.value);
+    if (!clean) { msg.textContent = "Enter a clean nickname (1-12 characters)."; return; }
+    send.disabled = true;
+    msg.textContent = "Submitting...";
+    try {
+      await submitScore(clean, score, card);
+      showLeaderboardOverlay(clean);
+    } catch (e) {
+      send.disabled = false;
+      msg.textContent = e.message || "Submit failed.";
+    }
+  });
+  nick.addEventListener("keydown", (e) => { if (e.key === "Enter") send.click(); });
+}
+
+async function showLeaderboardOverlay(highlightNick) {
+  const o = lbBuild(`
+    <div class="lb-title">TOP SCORES</div>
+    <div class="lb-list" id="lbList">loading...</div>
+    <div class="lb-btns"><button class="btn primary" id="lbCloseBtn">CLOSE</button></div>
+  `);
+  o.querySelector("#lbCloseBtn").addEventListener("click", lbClose);
+  const list = o.querySelector("#lbList");
+  try {
+    const rows = await fetchLeaderboard();
+    if (!rows.length) { list.textContent = "No scores yet - be the first!"; return; }
+    list.innerHTML = rows
+      .map((r, i) => {
+        const hl = highlightNick && r.nickname === highlightNick ? " lb-hl" : "";
+        const rank = String(i + 1).padStart(2, "0");
+        const nm = escHtml(String(r.nickname || "").toUpperCase());
+        const cd = r.card ? `<span class="lb-card">${escHtml(r.card)}</span>` : "";
+        return `<div class="lb-rowline${hl}"><span class="lb-rank">${rank}</span><span class="lb-nm">${nm}</span>${cd}<span class="lb-sc">${r.score}</span></div>`;
+      })
+      .join("");
+  } catch (e) {
+    list.textContent = e.message || "Could not load leaderboard.";
+  }
+}
+
 function runPlinkoMode(ctx, card) {  // Stop any existing game
   if (plinkoAnimId) { cancelAnimationFrame(plinkoAnimId); plinkoAnimId = null; }
 
@@ -1181,6 +1301,31 @@ function runPlinkoMode(ctx, card) {  // Stop any existing game
   plinkoDropBtn.parentNode.replaceChild(newBtn, plinkoDropBtn);
   plinkoDropBtn = newBtn;
 
+  // Submit-score button (hidden until the round is over), then Leaderboard
+  // button (always available). Both live in the drop row.
+  let subBtn = document.getElementById("plinkoSubmitBtn");
+  if (!subBtn) {
+    subBtn = document.createElement("button");
+    subBtn.id = "plinkoSubmitBtn";
+    subBtn.className = "btn primary";
+    subBtn.textContent = "SUBMIT SCORE";
+  }
+  if (dropRow && subBtn.parentNode !== dropRow) dropRow.appendChild(subBtn);
+  subBtn.style.display = "none";
+  const newSub = subBtn.cloneNode(true);
+  subBtn.parentNode.replaceChild(newSub, subBtn);
+  newSub.addEventListener("click", () => showSubmitOverlay(st.score, plinkoCurrentCard));
+
+  let lbBtn = document.getElementById("plinkoLbBtn");
+  if (!lbBtn) {
+    lbBtn = document.createElement("button");
+    lbBtn.id = "plinkoLbBtn";
+    lbBtn.className = "btn";
+    lbBtn.textContent = "LEADERBOARD";
+    lbBtn.addEventListener("click", () => showLeaderboardOverlay());
+  }
+  if (dropRow && lbBtn.parentNode !== dropRow) dropRow.appendChild(lbBtn);
+
   plinkoDropBtn.addEventListener("click", () => {
     if (st.roundOver) {
       // Reset
@@ -1192,6 +1337,8 @@ function runPlinkoMode(ctx, card) {  // Stop any existing game
       st.roundOver = false;
       plinkoDropBtn.textContent = `DROP BALL (${st.ballsRemaining})`;
       plinkoDropBtn.disabled = false;
+      const sb = document.getElementById("plinkoSubmitBtn");
+      if (sb) sb.style.display = "none";
       return;
     }
     if (st.ballsRemaining <= 0) return;
@@ -1459,6 +1606,8 @@ function runPlinkoMode(ctx, card) {  // Stop any existing game
       }
       plinkoDropBtn.textContent = "AGAIN";
       plinkoDropBtn.disabled = false;
+      const sb = document.getElementById("plinkoSubmitBtn");
+      if (sb) sb.style.display = "inline-block";
     }
 
     if (st.roundOver) {
