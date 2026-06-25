@@ -1013,6 +1013,12 @@ function runPlinkoMode(ctx, card) {
       ctx.lineTo(sx, slotFloor);
       ctx.stroke();
     }
+    // Clean white band behind the score row so the card's corner pips
+    // (e.g. the rotated rank/suit in the bottom corner) can't bleed into the
+    // labels and make them unreadable. Invisible against the white card.
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, slotFloor, W, H - slotFloor);
+
     // Slot floor
     ctx.strokeStyle = color;
     ctx.lineWidth = 2;
@@ -1025,8 +1031,12 @@ function runPlinkoMode(ctx, card) {
     ctx.textAlign = "center";
     ctx.textBaseline = "top";
     for (let i = 0; i < slotCount; i++) {
+      // nudge the two edge labels inward so they clear the card border
+      let lx = i * slotWidth + slotWidth / 2;
+      if (i === 0) lx += S(6);
+      if (i === slotCount - 1) lx -= S(6);
       ctx.fillStyle = color;
-      ctx.fillText(String(slotScores[i]), i * slotWidth + slotWidth / 2, slotFloor + S(4));
+      ctx.fillText(String(slotScores[i]), lx, slotFloor + S(4));
     }
 
     // Draw walls — only down to the bucket floor so suit-colored labels below sit clean
