@@ -10,9 +10,17 @@ const examplesBtn = document.getElementById("examplesBtn");
 const scanBtn = document.getElementById("scanBtn");
 const CANVAS = document.getElementById("cardCanvas");
 
+// Render at the device's pixel density so the card isn't upscaled and blurry
+// on high-DPI (retina / phone) screens. CSS still controls the display size;
+// only the backing store gets sharper. All drawing uses W/H/SCALE below, so it
+// scales automatically - no other code needs to change. Capped at 3x.
+const DPR = Math.max(1, Math.min(window.devicePixelRatio || 1, 3));
+CANVAS.width = 360 * DPR;
+CANVAS.height = 528 * DPR;
+
 /* ========= RENDERING ENGINE (unchanged logic that already works well) ========= */
-const W = CANVAS.width; // 360
-const H = CANVAS.height; // 528
+const W = CANVAS.width; // 360 * DPR
+const H = CANVAS.height; // 528 * DPR
 
 const suitChar = (s) =>
   ({ clubs: "♣", spades: "♠", hearts: "♥", diamonds: "♦", poo: "💩" }[
