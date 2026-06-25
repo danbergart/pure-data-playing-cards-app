@@ -285,7 +285,7 @@ function drawCredits(ctx) {
   const orange = "#ff8800";
   const dim = "rgba(0,204,85,0.5)";
   const punc = "#5a615a";
-  const mono = (px) => `${Math.round(S(px))}px Consolas, Inconsolata, ui-monospace, monospace`;
+  const mono = (px) => `${Math.round(S(px))}px ui-monospace, monospace`;
 
   ctx.textBaseline = "alphabetic";
   ctx.textAlign = "left";
@@ -396,7 +396,7 @@ function runGlitchEffect(ctx, callback) {
 
     // Garbled text
     gCtx.fillStyle = `rgba(0,200,80,${0.3 + Math.random() * 0.5})`;
-    gCtx.font = `${12 + Math.floor(Math.random() * 16)}px Consolas, Inconsolata, ui-monospace`;
+    gCtx.font = `${12 + Math.floor(Math.random() * 16)}px ui-monospace`;
     gCtx.textAlign = "left";
     for (let i = 0; i < 3 + Math.floor(frame / 5); i++) {
       const chars = "01{}:\"system_patchPATCH-001featureunlockhiddenchecksum4fva9dc";
@@ -440,7 +440,7 @@ function drawPatchCard(ctx) {
   ctx.setLineDash([]);
 
   const xL = S(28);
-  const mono = (px) => `${Math.round(S(px))}px Consolas, Inconsolata, ui-monospace, monospace`;
+  const mono = (px) => `${Math.round(S(px))}px ui-monospace, monospace`;
 
   // header row: comment left, version right
   ctx.textBaseline = "alphabetic";
@@ -682,7 +682,7 @@ function runAsciiMode(ctx) {
   const startY = (H - totalHeight) / 2 + fontSize;
 
   ctx.fillStyle = "#00cc55";
-  ctx.font = `${fontSize}px Consolas, Inconsolata, ui-monospace`;
+  ctx.font = `${fontSize}px ui-monospace`;
   ctx.textAlign = "center";
 
   grid.forEach((line, i) => {
@@ -745,7 +745,7 @@ function runCorruptMode(ctx) {
     // Data overlay - corrupted text appears
     if (step > 30) {
       ctx.fillStyle = `rgba(0,200,80,${Math.random() * 0.6})`;
-      ctx.font = `${Math.round(S(8))}px Consolas, Inconsolata, ui-monospace`;
+      ctx.font = `${Math.round(S(8))}px ui-monospace`;
       ctx.textAlign = "left";
       for (let i = 0; i < Math.floor(step / 10); i++) {
         const chars = "0123456789abcdef{}:\",.nullundefined";
@@ -849,7 +849,7 @@ function runPlinkoMode(ctx, card) {
     ctx.fillRect(0, 0, W, H);
     ctx.textAlign = "center";
     ctx.fillStyle = "#00cc55";
-    ctx.font = `${Math.round(S(12))}px Consolas, Inconsolata, ui-monospace`;
+    ctx.font = `${Math.round(S(12))}px ui-monospace`;
     ctx.fillText("need a number card for plinko", W / 2, H / 2);
     return;
   }
@@ -988,7 +988,7 @@ function runPlinkoMode(ctx, card) {
       if (isBrown(suit)) {
         drawPooPip(ctx, px, py, pegRadius * 1.8);
       } else {
-        ctx.font = `${Math.round(pegRadius * 2)}px Consolas, Inconsolata, ui-monospace`;
+        ctx.font = `${Math.round(pegRadius * 2)}px ui-monospace`;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.fillText(suitChar(suit), px, py);
@@ -1013,7 +1013,7 @@ function runPlinkoMode(ctx, card) {
     ctx.lineTo(W, slotFloor);
     ctx.stroke();
     // Slot labels — large, BENEATH the buckets, suit-colored
-    ctx.font = `bold ${Math.round(S(14))}px Consolas, Inconsolata, ui-monospace`;
+    ctx.font = `bold ${Math.round(S(14))}px ui-monospace`;
     ctx.textAlign = "center";
     ctx.textBaseline = "top";
     for (let i = 0; i < slotCount; i++) {
@@ -1124,7 +1124,7 @@ function runPlinkoMode(ctx, card) {
       if (p.fade <= 0) return false;
       ctx.globalAlpha = p.fade / 40;
       ctx.fillStyle = color;
-      ctx.font = `bold ${Math.round(S(12))}px Consolas, Inconsolata, ui-monospace`;
+      ctx.font = `bold ${Math.round(S(12))}px ui-monospace`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillText(`+${p.pts}`, p.x, p.y - (40 - p.fade) * 1.2);
@@ -1151,13 +1151,13 @@ function runPlinkoMode(ctx, card) {
       ctx.fillStyle = "rgba(0,0,0,0.5)";
       ctx.fillRect(W / 2 - S(80), H / 2 - S(30), S(160), S(60));
       ctx.fillStyle = "#ff8800";
-      ctx.font = `${Math.round(S(16))}px Consolas, Inconsolata, ui-monospace`;
+      ctx.font = `${Math.round(S(16))}px ui-monospace`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillText(`${st.score} PTS`, W / 2, H / 2 - S(6));
       if (st.score >= plinkoHighScore && st.score > 0) {
         ctx.fillStyle = "#00cc55";
-        ctx.font = `${Math.round(S(9))}px Consolas, Inconsolata, ui-monospace`;
+        ctx.font = `${Math.round(S(9))}px ui-monospace`;
         ctx.fillText("NEW HIGH SCORE!", W / 2, H / 2 + S(16));
       }
     }
@@ -1210,7 +1210,7 @@ function renderCard(json) {
   }
 
   ctx.fillStyle = "#333";
-  ctx.font = `${Math.round(S(22))}px Consolas, Inconsolata, ui-monospace`;
+  ctx.font = `${Math.round(S(22))}px ui-monospace`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText("Invalid card", W / 2, H / 2);
@@ -1240,8 +1240,8 @@ function gridLayout(n) {
 
 function drawNumber(ctx, rank, suit) {
   const color = suitColor(suit);
-  const cornerFont = `${Math.round(S(CARD_SCALE.corner))}px Consolas, Inconsolata, ui-monospace`;
-  const suitSmall = `${Math.round(S(CARD_SCALE.cornerSuit))}px Consolas, Inconsolata, ui-monospace`;
+  const cornerFont = `${Math.round(S(CARD_SCALE.corner))}px ui-monospace`;
+  const suitSmall = `${Math.round(S(CARD_SCALE.cornerSuit))}px ui-monospace`;
   const pad = S(CARD_SCALE.cornerPad);
 
   const rankText = String(rank).toUpperCase().replace(/^ACE$/, "A");
@@ -1269,15 +1269,15 @@ function drawNumber(ctx, rank, suit) {
   if (isBrown(suit)) {
     drawPooPipsCentered(ctx, layout, color, pipPx * 0.5);
   } else {
-    drawPipsCentered(ctx, layout, suit, color, `${Math.round(pipPx)}px Consolas, Inconsolata, ui-monospace`);
+    drawPipsCentered(ctx, layout, suit, color, `${Math.round(pipPx)}px ui-monospace`);
   }
 }
 
 function drawFace(ctx, rank, suit) {
   const color = suitColor(suit);
-  const cornerFont = `${Math.round(S(CARD_SCALE.corner))}px Consolas, Inconsolata, ui-monospace`;
-  const suitSmall = `${Math.round(S(CARD_SCALE.cornerSuit))}px Consolas, Inconsolata, ui-monospace`;
-  const centerFont = `${Math.round(S(CARD_SCALE.faceCenter))}px Consolas, Inconsolata, ui-monospace`;
+  const cornerFont = `${Math.round(S(CARD_SCALE.corner))}px ui-monospace`;
+  const suitSmall = `${Math.round(S(CARD_SCALE.cornerSuit))}px ui-monospace`;
+  const centerFont = `${Math.round(S(CARD_SCALE.faceCenter))}px ui-monospace`;
   const pad = S(CARD_SCALE.cornerPad);
   const letter = (rank || "?")[0].toUpperCase().replace("A", "A");
 
@@ -1303,11 +1303,11 @@ function drawFace(ctx, rank, suit) {
 
 function drawJoker(ctx, card) {
   ctx.fillStyle = "#900";
-  ctx.font = `${Math.round(S(40))}px Consolas, Inconsolata, ui-monospace`;
+  ctx.font = `${Math.round(S(40))}px ui-monospace`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText("JOKER", W / 2, H / 2);
-  ctx.font = `${Math.round(S(12))}px Consolas, Inconsolata, ui-monospace`;
+  ctx.font = `${Math.round(S(12))}px ui-monospace`;
   if (card.payload) {
     const line = String(card.payload).replace(/\n/g, " ");
     ctx.fillText(line, W / 2, H / 2 + S(34));
