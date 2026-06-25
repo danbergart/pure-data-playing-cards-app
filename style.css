@@ -1,6 +1,6 @@
 :root {
-  --bg: #0a0c0d;
-  --bg-2: #0e1112;
+  --bg: #23272e;
+  --bg-2: #2b3038;
   --panel: #000000;
   --surface: #131617;
   --line: rgba(255, 255, 255, 0.13);
@@ -422,8 +422,8 @@ body {
   height: 100%;
   background: transparent;
   border-radius: 16px;
-  box-shadow: 0 26px 60px -26px rgba(0, 0, 0, 0.95),
-    0 0 0 1px rgba(255, 255, 255, 0.05);
+  box-shadow: 0 18px 44px -20px rgba(0, 0, 0, 0.7),
+    0 0 0 1px rgba(0, 0, 0, 0.18);
 }
 
 /* ============ PLINKO — SCORE CHIPS ============ */
