@@ -37,7 +37,7 @@
       <main class="console">
         <div class="titlebar">
           <span class="dot"></span><span class="dot"></span><span class="dot"></span>
-          <span class="titlepath">renderer - danberg.art/puredata</span>
+          <span class="titlepath">renderer</span>
         </div>
 
         <div class="console-body">
@@ -116,6 +116,9 @@
         <!-- Drop ball row (shown when Plinko is on) -->
         <div class="row drop-row" id="plinkoDropRow" hidden></div>
       </section>
+
+      <!-- Subtle build tag so the latest version can be confirmed past the cache -->
+      <div class="buildtag" id="buildTag"></div>
     </div>
 
     <!-- Camera overlay is created dynamically by JS -->
@@ -155,6 +158,13 @@
             toggle();
           }
         });
+        // Loading an example expands the box so people see what the button did.
+        var ex = document.getElementById("examplesBtn");
+        if (ex)
+          ex.addEventListener("click", function () {
+            block.classList.add("open");
+            label.setAttribute("aria-expanded", "true");
+          });
       })();
     </script>
 
