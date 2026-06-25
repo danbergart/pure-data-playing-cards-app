@@ -618,6 +618,31 @@ body {
   }
 }
 
+/* Console + rendered card: stacked by default, side by side on wide screens. */
+.work {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+@media (min-width: 880px) {
+  .app {
+    max-width: 960px;
+  }
+  .work {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 28px;
+  }
+  .work > .console {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+  .work > .stage-wrap {
+    flex: 0 0 auto;
+    margin-top: 0;
+  }
+}
+
 /* ============ EMBEDDED (inside Shopify iframe) ============ */
 /* When framed, drop the full-viewport min-heights so the app sizes to its
    content and the host iframe can auto-resize cleanly (no growth loop). */
