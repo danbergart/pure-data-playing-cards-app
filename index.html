@@ -29,8 +29,7 @@
           <span class="b-brace">}</span>
         </div>
         <p class="tagline">
-          Scan a card to render it, or paste its JSON below.
-          <a class="pack-link" href="https://danberg.art" target="_blank" rel="noopener">get your pack ↗</a>
+          Scan a card to render it.
         </p>
       </header>
 
@@ -38,7 +37,7 @@
       <main class="console">
         <div class="titlebar">
           <span class="dot"></span><span class="dot"></span><span class="dot"></span>
-          <span class="titlepath">renderer — danberg.art/code</span>
+          <span class="titlepath">renderer - danberg.art/puredata</span>
         </div>
 
         <div class="console-body">
@@ -121,7 +120,43 @@
 
     <!-- Camera overlay is created dynamically by JS -->
 
+    <!-- Render the card at the device's pixel ratio so it stays crisp on
+         Retina / high-DPI screens. Must run BEFORE app.js reads the size. -->
+    <script>
+      (function () {
+        var c = document.getElementById("cardCanvas");
+        if (c) {
+          var dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, 3));
+          c.width = Math.round(360 * dpr);
+          c.height = Math.round(528 * dpr);
+        }
+      })();
+    </script>
     <script src="./app.js"></script>
+
+    <!-- Manual-input box is collapsed by default; the green arrow expands it.
+         Loading an example also expands it so the JSON is visible. -->
+    <script>
+      (function () {
+        var block = document.querySelector(".editor-block");
+        var label = block && block.querySelector(".editor-label");
+        if (!block || !label) return;
+        label.setAttribute("role", "button");
+        label.setAttribute("tabindex", "0");
+        label.setAttribute("aria-expanded", "false");
+        function toggle() {
+          var open = block.classList.toggle("open");
+          label.setAttribute("aria-expanded", open ? "true" : "false");
+        }
+        label.addEventListener("click", toggle);
+        label.addEventListener("keydown", function (e) {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            toggle();
+          }
+        });
+      })();
+    </script>
 
     <!-- Auto-resize the Shopify iframe. Message type matches the parent
          wrapper (purecode:height). Harmless if not embedded. -->
