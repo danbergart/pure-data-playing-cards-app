@@ -184,26 +184,56 @@ const EXAMPLES = {
   Back: {
     type: "back",
     pattern: [
-      "· x · x · x · x · x · x",
-      "x · x · x · x · x · x ·",
-      "· x · x · x · x · x · x",
-      "x · x · x · x · x · x ·",
-      "· x · x · x · x · x · x",
-      "x · x · x · x · x · x ·",
-      "· x · x · x · x · x · x",
-      "x · x · x · x · x · x ·",
-      "· x · x · x · x · x · x",
-      "x · x · x · x · x · x ·",
-      "· x · x · x · x · x · x",
-      "x · x · x · x · x · x ·",
+      "· x · x · x · x · x",
+      "x · x · x · x · x ·",
+      "· x · x · x · x · x",
+      "x · x · x · x · x ·",
+      "· x · x · x · x · x",
+      "x · x · x · x · x ·",
+      "· x · x · x · x · x",
+      "x · x · x · x · x ·",
+      "· x · x · x · x · x",
+      "x · x · x · x · x ·",
+      "· x · x · x · x · x",
     ],
   },
   Joker: {
     rank: "ERROR",
     suit: "HACKED",
-    payload: "<script>alert(JOKER!)</script>",
+    exploit: "<script>",
+    payload: "alert(1)",
+    file: "/etc/passwd",
     type: "joker1",
   },
+};
+
+// Canonical non-standard cards, matching the printed First Edition deck.
+const PATCH_CARD = {
+  type: "system_patch",
+  help: "scan_to_use",
+  version: "1.1",
+  card_id: "patch_001",
+  rel_chan: "1_ed",
+  apply_to: "renderer",
+  features: { hidden_mode: true, r_override: "exp", payload: "unlock" },
+  checksum: "3fb8e38f",
+};
+const CREDITS_CARD = {
+  type: "credits",
+  maker: "DanBerg",
+  edition: "first2026",
+  developers: [
+    "Conk", "Sayawolfram", "FukaRyu", "GodVars", "Klawkwark",
+    "TG-Rex1", "MagoNicolas", "Wuby", "Stoobert", "Xantrein",
+  ],
+};
+const JOKER_CARD = {
+  rank: "ERROR",
+  suit: "HACKED",
+  exploit: "<script>",
+  payload: "alert(1)",
+  file: "/etc/passwd",
+  type: "joker1",
 };
 
 /* --- helpers for text placement --- */
@@ -353,6 +383,104 @@ function drawCredits(ctx) {
   ctx.font = mono(9);
   ctx.textAlign = "center";
   ctx.fillText("// Dan Berg 2026", W / 2, H - S(18));
+}
+
+/* Physical credits card (type:"credits") - rendered as-is: the card's own
+   JSON, syntax-highlighted like the other data screens. Distinct from the
+   typed-"credits" digital-supporters easter egg above. */
+function drawCreditsCard(ctx, card) {
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = "#000";
+  ctx.fillRect(0, 0, W, H);
+
+  const orange = "#ff8800";
+  const green = "#46e285";
+  const punc = "#828a82";
+  const mono = (px) => `${Math.round(S(px))}px ui-monospace, monospace`;
+  ctx.textBaseline = "alphabetic";
+  ctx.textAlign = "left";
+
+  const x0 = S(22);
+  const lh = S(21);
+  let y = S(44);
+
+  // a "key": "value" line with syntax colours
+  function kv(indent, key, val, comma) {
+    let x = x0 + indent;
+    ctx.font = mono(12);
+    ctx.fillStyle = punc; ctx.fillText('"', x, y); x += ctx.measureText('"').width;
+    ctx.fillStyle = orange; ctx.fillText(key, x, y); x += ctx.measureText(key).width;
+    ctx.fillStyle = punc; ctx.fillText('": "', x, y); x += ctx.measureText('": "').width;
+    ctx.fillStyle = green; ctx.fillText(val, x, y); x += ctx.measureText(val).width;
+    ctx.fillStyle = punc; ctx.fillText('"' + (comma ? "," : ""), x, y);
+  }
+
+  ctx.font = mono(12);
+  ctx.fillStyle = punc; ctx.fillText("{", x0, y); y += lh;
+  kv(S(14), "type", "credits", true); y += lh;
+  kv(S(14), "maker", String(card.maker || "DanBerg"), true); y += lh;
+  kv(S(14), "edition", String(card.edition || "first2026"), true); y += lh;
+
+  // developers array opener
+  let x = x0 + S(14);
+  ctx.font = mono(12);
+  ctx.fillStyle = punc; ctx.fillText('"', x, y); x += ctx.measureText('"').width;
+  ctx.fillStyle = orange; ctx.fillText("developers", x, y); x += ctx.measureText("developers").width;
+  ctx.fillStyle = punc; ctx.fillText('": [', x, y);
+  y += lh;
+
+  const devs = Array.isArray(card.developers) ? card.developers : [];
+  const startY = y;
+  const rowH = S(21);
+  const indent = x0 + S(28);
+  ctx.font = mono(11);
+  for (let i = 0; i < devs.length; i += 2) {
+    let xx = indent;
+    const dy = startY + (i / 2) * rowH;
+    for (let k = 0; k < 2 && i + k < devs.length; k++) {
+      const idx = i + k;
+      const d = devs[idx];
+      ctx.fillStyle = punc; ctx.fillText('"', xx, dy); xx += ctx.measureText('"').width;
+      ctx.fillStyle = green; ctx.fillText(d, xx, dy); xx += ctx.measureText(d).width;
+      const tail = '"' + (idx === devs.length - 1 ? "" : ",");
+      ctx.fillStyle = punc; ctx.fillText(tail, xx, dy); xx += ctx.measureText(tail).width;
+      if (k === 0 && i + 1 < devs.length) { ctx.fillText(" ", xx, dy); xx += ctx.measureText(" ").width; }
+    }
+  }
+  y = startY + Math.ceil(devs.length / 2) * rowH;
+  ctx.font = mono(12);
+  ctx.fillStyle = punc; ctx.fillText("]", x0 + S(14), y); y += lh;
+  ctx.fillStyle = punc; ctx.fillText("}", x0, y);
+}
+
+/* Instructions card - the printed card is plain comment lines, rendered as a
+   green code-comment block. */
+function drawInstructions(ctx) {
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = "#000";
+  ctx.fillRect(0, 0, W, H);
+
+  const white = "#ffffff";
+  const mono = (px) => `${Math.round(S(px))}px ui-monospace, monospace`;
+  ctx.textBaseline = "alphabetic";
+  ctx.textAlign = "left";
+
+  const lines = [
+    "// Pure Data Playing Cards",
+    "// Edition 1",
+    "",
+    "// To render cards visit:",
+    "// danberg.art/puredata",
+  ];
+  ctx.fillStyle = white;
+  ctx.font = mono(13);
+  const x0 = S(24);
+  const lh = S(24);
+  let y = H / 2 - (lines.length * lh) / 2;
+  lines.forEach((ln) => {
+    if (ln) ctx.fillText(ln, x0, y);
+    y += lh;
+  });
 }
 
 /* ========= SYSTEM PATCH ========= */
@@ -513,7 +641,7 @@ function drawPatchCard(ctx) {
   // footer flavour
   ctx.font = mono(9);
   ctx.fillStyle = dim;
-  ctx.fillText("4fva9dc2b8e19a", W / 2, H - S(24));
+  ctx.fillText("3fb8e38f", W / 2, H - S(24));
 }
 
 function drawPatchActivation(ctx) {
@@ -891,7 +1019,7 @@ function runPlinkoMode(ctx, card) {
   plinkoState = {
     balls: [],
     landed: [],
-    ballsRemaining: 3,
+    ballsRemaining: 10,
     score: 0,
     popups: [],
     roundOver: false,
@@ -933,7 +1061,7 @@ function runPlinkoMode(ctx, card) {
       // Reset
       st.balls = [];
       st.landed = [];
-      st.ballsRemaining = 3;
+      st.ballsRemaining = 10;
       st.score = 0;
       st.popups = [];
       st.roundOver = false;
@@ -1061,6 +1189,40 @@ function runPlinkoMode(ctx, card) {
     });
 
     // Update active balls
+    // Ball-to-ball collisions: equal-mass elastic response so dropped balls
+    // bounce off each other instead of passing through.
+    for (let i = 0; i < st.balls.length; i++) {
+      const a = st.balls[i];
+      if (!a.active) continue;
+      for (let j = i + 1; j < st.balls.length; j++) {
+        const b = st.balls[j];
+        if (!b.active) continue;
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const dist = Math.hypot(dx, dy);
+        const minDist = ballRadius * 2;
+        if (dist > 0 && dist < minDist) {
+          const nx = dx / dist;
+          const ny = dy / dist;
+          // push them apart so they don't overlap
+          const overlap = (minDist - dist) / 2;
+          a.x -= nx * overlap;
+          a.y -= ny * overlap;
+          b.x += nx * overlap;
+          b.y += ny * overlap;
+          // exchange velocity along the collision normal
+          const vn = (b.vx - a.vx) * nx + (b.vy - a.vy) * ny;
+          if (vn < 0) {
+            const imp = (-(1 + bounceFactor) * vn) / 2;
+            a.vx -= imp * nx;
+            a.vy -= imp * ny;
+            b.vx += imp * nx;
+            b.vy += imp * ny;
+          }
+        }
+      }
+    }
+
     st.balls.forEach((ball) => {
       if (!ball.active) return;
 
@@ -1206,6 +1368,14 @@ function renderCard(json) {
     drawPatchActivation(ctx);
     return;
   }
+  if (String(card.type).toLowerCase() === "credits") {
+    drawCreditsCard(ctx, card);
+    return;
+  }
+  if (String(card.type).toLowerCase() === "instructions") {
+    drawInstructions(ctx);
+    return;
+  }
   if (card.type && String(card.type).toLowerCase().startsWith("joker")) {
     drawJoker(ctx, card);
     return;
@@ -1319,17 +1489,152 @@ function drawFace(ctx, rank, suit) {
     });
 }
 
+// Try each URL in turn; resolve with the first image that loads.
+function loadAnyImage(urls) {
+  return new Promise((resolve, reject) => {
+    let i = 0;
+    const tryNext = () => {
+      if (i >= urls.length) return reject(new Error("no image"));
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => { i++; tryNext(); };
+      img.src = urls[i];
+    };
+    tryNext();
+  });
+}
+
+// Joker: if a CC0 joker SVG is present in faces/ (e.g. faces/joker1.svg,
+// faces/joker2.svg or faces/joker.svg) it is used - matching the face-card
+// artwork. Otherwise we fall back to the drawn jester below.
 function drawJoker(ctx, card) {
-  ctx.fillStyle = "#900";
-  ctx.font = `${Math.round(S(40))}px ui-monospace`;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText("JOKER", W / 2, H / 2);
-  ctx.font = `${Math.round(S(12))}px ui-monospace`;
-  if (card.payload) {
-    const line = String(card.payload).replace(/\n/g, " ");
-    ctx.fillText(line, W / 2, H / 2 + S(34));
+  const type = String(card && card.type ? card.type : "joker").toLowerCase();
+  loadAnyImage([
+    `faces/${type}.png`, `faces/${type}.svg`,
+    "faces/joker.png", "faces/joker.svg",
+  ])
+    .then((img) => {
+      ctx.clearRect(0, 0, W, H);
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(0, 0, W, H);
+      // "contain": preserve the image's aspect ratio, centred on the card,
+      // so a joker image of any proportions isn't stretched.
+      const iw = img.width || img.naturalWidth || W;
+      const ih = img.height || img.naturalHeight || H;
+      const scale = Math.min(W / iw, H / ih);
+      const dw = iw * scale;
+      const dh = ih * scale;
+      ctx.drawImage(img, (W - dw) / 2, (H - dh) / 2, dw, dh);
+    })
+    .catch(() => drawJokerArt(ctx));
+}
+
+function drawJokerArt(ctx) {
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(0, 0, W, H);
+
+  const red = "#c0202a";
+  const black = "#161616";
+  const gold = "#e3b424";
+  const cx = W / 2;
+  const faceR = S(46);
+  const faceY = H * 0.47;
+  const capBaseY = faceY - faceR * 0.45;
+
+  // ---- Cap: three lobes + bells ----
+  const tips = [
+    { x: cx - faceR * 1.95, y: capBaseY - S(34) },
+    { x: cx, y: capBaseY - S(86) },
+    { x: cx + faceR * 1.95, y: capBaseY - S(34) },
+  ];
+  function lobe(ax, ay, bx, by, tip, col) {
+    ctx.beginPath();
+    ctx.moveTo(ax, ay);
+    ctx.quadraticCurveTo((ax + tip.x) / 2 - S(8), (ay + tip.y) / 2 - S(6), tip.x, tip.y);
+    ctx.quadraticCurveTo((bx + tip.x) / 2 + S(8), (by + tip.y) / 2 - S(6), bx, by);
+    ctx.closePath();
+    ctx.fillStyle = col;
+    ctx.fill();
   }
+  // outer lobes (red), then centre lobe (black) on top
+  lobe(cx - faceR * 0.9, capBaseY, cx - S(2), capBaseY - S(6), tips[0], red);
+  lobe(cx + S(2), capBaseY - S(6), cx + faceR * 0.9, capBaseY, tips[2], red);
+  lobe(cx - faceR * 0.55, capBaseY - S(4), cx + faceR * 0.55, capBaseY - S(4), tips[1], black);
+
+  // bells
+  tips.forEach((tp) => {
+    ctx.beginPath();
+    ctx.arc(tp.x, tp.y, S(8), 0, Math.PI * 2);
+    ctx.fillStyle = gold;
+    ctx.fill();
+    ctx.strokeStyle = black;
+    ctx.lineWidth = S(1.5);
+    ctx.stroke();
+  });
+
+  // cap band across the brow
+  ctx.beginPath();
+  ctx.moveTo(cx - faceR, capBaseY);
+  ctx.quadraticCurveTo(cx, capBaseY + S(12), cx + faceR, capBaseY);
+  ctx.quadraticCurveTo(cx, capBaseY - S(4), cx - faceR, capBaseY);
+  ctx.closePath();
+  ctx.fillStyle = black;
+  ctx.fill();
+
+  // ---- Face ----
+  ctx.beginPath();
+  ctx.arc(cx, faceY, faceR, 0, Math.PI * 2);
+  ctx.fillStyle = "#fff";
+  ctx.fill();
+  ctx.strokeStyle = black;
+  ctx.lineWidth = S(2.5);
+  ctx.stroke();
+
+  // eyes
+  ctx.fillStyle = black;
+  ctx.beginPath(); ctx.arc(cx - faceR * 0.36, faceY - S(3), S(5), 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(cx + faceR * 0.36, faceY - S(3), S(5), 0, Math.PI * 2); ctx.fill();
+  // rosy nose
+  ctx.beginPath(); ctx.arc(cx, faceY + S(9), S(4.5), 0, Math.PI * 2); ctx.fillStyle = red; ctx.fill();
+  // grin
+  ctx.beginPath();
+  ctx.strokeStyle = black;
+  ctx.lineWidth = S(2.5);
+  ctx.arc(cx, faceY + S(4), faceR * 0.52, 0.18 * Math.PI, 0.82 * Math.PI);
+  ctx.stroke();
+
+  // ---- Ruff collar ----
+  const collarY = faceY + faceR + S(10);
+  const scallops = 7;
+  const cw = (faceR * 2.6) / scallops;
+  const cstartX = cx - (cw * scallops) / 2;
+  for (let i = 0; i < scallops; i++) {
+    ctx.beginPath();
+    ctx.arc(cstartX + cw * i + cw / 2, collarY, cw * 0.62, Math.PI, 2 * Math.PI);
+    ctx.fillStyle = i % 2 ? red : black;
+    ctx.fill();
+  }
+  ctx.fillStyle = black;
+  ctx.fillRect(cstartX, collarY - S(2), cw * scallops, S(5));
+
+  // ---- Labels ----
+  ctx.fillStyle = red;
+  ctx.font = `bold ${Math.round(S(30))}px ui-monospace, monospace`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "alphabetic";
+  ctx.fillText("JOKER", cx, H - S(46));
+
+  // small corner tags (like a rank index), upright top-left + rotated bottom-right
+  ctx.font = `bold ${Math.round(S(13))}px ui-monospace, monospace`;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "top";
+  ctx.fillText("JKR", S(13), S(13));
+  ctx.save();
+  ctx.translate(W - S(13), H - S(13));
+  ctx.rotate(Math.PI);
+  ctx.fillText("JKR", 0, 0);
+  ctx.restore();
 }
 
 function drawBackPattern(
@@ -1535,47 +1840,54 @@ function trySnapToDeck(text) {
     (s) => t.includes(`"${s}"`) || t.includes(`:${s}`) || t.includes(` ${s}`)
   );
 
-  // System Patch card detection (fuzzy - ~10% OCR tolerance)
-  // Key tokens from the printed card that OCR should pick up
-  const patchTokens = [
-    "system_patch", "system patch",
-    "patch-001", "patch 001",
-    "feature-unlock", "feature unlock",
-    "hidden_mode", "hidden mode",
-    "secret_payload", "secret payload",
-    "4fva9dc2b8e19a",
-    "rel-chan", "rel chan",
-    "first-edition", "first edition",
-    "r-override", "r override",
-  ];
-  // Count how many tokens appear in the scanned text
-  const patchHits = patchTokens.filter((tok) => t.includes(tok)).length;
-  // If 3+ tokens match (~20% of the list), it's the patch card
-  if (patchHits >= 3 || t.includes("system_patch") || t.includes("system patch")) {
-    return JSON.stringify({
-      type: "system_patch",
-      version: "1.1",
-      card_id: "PATCH-001",
-      "rel-chan": "first-edition",
-      applies_to: "renderer",
-      scope: "feature-unlock",
-      features: {
-        hidden_mode: true,
-        "r-override": "experiment",
-        secret_payload: "unlock",
-      },
-      checksum: "4fva9dc2b8e19a",
-    }, null, 2);
+  // Instructions card (plain comment text, not JSON)
+  if (
+    t.includes("puredata") ||
+    t.includes("pure data playing cards") ||
+    (t.includes("danberg.art") && t.includes("render"))
+  ) {
+    return JSON.stringify({ type: "instructions" }, null, 2);
   }
 
-  // Joker / Back shortcuts
-  if (t.includes("joker") || t.includes("error") || t.includes("hacked")) {
+  // Physical credits card
+  if (
+    t.includes("credits") &&
+    (t.includes("developers") || t.includes("danberg") || t.includes("edition"))
+  ) {
+    return JSON.stringify(CREDITS_CARD, null, 2);
+  }
+
+  // System Patch card detection (fuzzy, tolerant of OCR errors).
+  // Tokens taken from the actual printed patch card.
+  const patchTokens = [
+    "system_patch", "system patch",
+    "patch_001", "patch 001",
+    "scan_to_use", "scan to use",
+    "hidden_mode", "hidden mode",
+    "r_override", "r override",
+    "3fb8e38f",
+    "rel_chan", "rel chan",
+    "1_ed",
+    "apply_to", "renderer",
+  ];
+  const patchHits = patchTokens.filter((tok) => t.includes(tok)).length;
+  if (patchHits >= 3 || t.includes("system_patch") || t.includes("system patch")) {
+    return JSON.stringify(PATCH_CARD, null, 2);
+  }
+
+  // Joker (two printed variants; both render the same joker visual)
+  if (
+    t.includes("joker") || t.includes("hacked") ||
+    t.includes("exploit") || t.includes("/etc/passwd")
+  ) {
+    const which = t.includes("alert(2)") || t.includes("joker2") ? "joker2" : "joker1";
     return JSON.stringify(
-      { rank: "ERROR", suit: "HACKED", type: "joker1" },
+      { ...JOKER_CARD, type: which, payload: which === "joker2" ? "alert(2)" : "alert(1)" },
       null,
       2
     );
   }
+
   if (t.includes("type") && t.includes("back")) {
     return JSON.stringify(EXAMPLES["Back"], null, 2);
   }
@@ -1632,13 +1944,17 @@ async function processImageBase64(b64) {
   // Put into editor
   ta.value = snapped;
 
-  // Auto-render patch card (no click needed)
+  // Auto-render straight away - no need to click Render.
   try {
     const card = JSON.parse(snapped);
-    if (String(card.type).toLowerCase() === "system_patch") {
+    if (plinkoMode && String(card.type).toLowerCase() !== "system_patch") {
+      startPlinkoFromCurrentCard();
+    } else {
       renderCard(snapped);
     }
-  } catch {}
+  } catch {
+    // not valid JSON - leave it in the editor for the user to fix
+  }
 }
 
 /* ========= UI WIRES ========= */
