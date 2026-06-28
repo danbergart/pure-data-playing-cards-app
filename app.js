@@ -24,10 +24,72 @@ const H = CANVAS.height; // 528 * DPR
 
 // Build/version tag - bumped on every handover so the latest deploy can be
 // confirmed past the GitHub Pages cache. Shown subtly at the foot of the app.
-const APP_VERSION = "v5";
+const APP_VERSION = "v6";
 (function () {
   const bt = document.getElementById("buildTag");
   if (bt) bt.textContent = APP_VERSION;
+})();
+
+/* ============ ARCADE SOUND (Web Audio, synthesised - no assets) ============ */
+const SFX = (function () {
+  let ctx = null;
+  let enabled = true;
+  try { enabled = localStorage.getItem("pdpc_sound") !== "off"; } catch (e) {}
+  let lastPeg = 0;
+
+  function ac() {
+    if (!ctx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (AC) { try { ctx = new AC(); } catch (e) { ctx = null; } }
+    }
+    if (ctx && ctx.state === "suspended") ctx.resume();
+    return ctx;
+  }
+  function tone(freq, dur, type, gain, delay) {
+    if (!enabled) return;
+    const c = ac();
+    if (!c) return;
+    const t = c.currentTime + (delay || 0);
+    const o = c.createOscillator();
+    const g = c.createGain();
+    o.type = type || "square";
+    o.frequency.setValueAtTime(freq, t);
+    g.gain.setValueAtTime(gain || 0.05, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g);
+    g.connect(c.destination);
+    o.start(t);
+    o.stop(t + dur + 0.02);
+  }
+  return {
+    unlock() { ac(); },
+    isEnabled() { return enabled; },
+    setEnabled(v) {
+      enabled = !!v;
+      try { localStorage.setItem("pdpc_sound", enabled ? "on" : "off"); } catch (e) {}
+      if (enabled) ac();
+    },
+    peg() {
+      const now = (window.performance && performance.now()) || Date.now();
+      if (now - lastPeg < 32) return; // throttle so it isn't machine-gun fire
+      lastPeg = now;
+      tone(380 + Math.random() * 520, 0.045, "square", 0.025);
+    },
+    drop() { tone(680, 0.09, "triangle", 0.05); },
+    land(pts) {
+      const base = 480 + Math.min(pts || 0, 100) * 6;
+      tone(base, 0.07, "square", 0.06);
+      tone(base * 1.5, 0.09, "square", 0.05, 0.07);
+    },
+    gameOver() {
+      tone(440, 0.16, "sawtooth", 0.05, 0);
+      tone(330, 0.16, "sawtooth", 0.05, 0.13);
+      tone(247, 0.26, "sawtooth", 0.05, 0.26);
+    },
+    highScore() {
+      [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.14, "square", 0.05, i * 0.09));
+    },
+  };
 })();
 
 const suitChar = (s) =>
@@ -1181,28 +1243,94 @@ function showSubmitOverlay(score, card) {
   nick.addEventListener("keydown", (e) => { if (e.key === "Enter") send.click(); });
 }
 
-async function showLeaderboardOverlay(highlightNick) {
+function lbRenderRows(list, rows, highlightNick) {
+  if (!rows.length) { list.textContent = "No scores yet - be the first!"; return; }
+  list.innerHTML = rows
+    .map((r, i) => {
+      const hl = highlightNick && r.nickname === highlightNick ? " lb-hl" : "";
+      const rank = String(i + 1).padStart(2, "0");
+      const nm = escHtml(String(r.nickname || "").toUpperCase());
+      const cd = r.card ? `<span class="lb-card">${escHtml(r.card)}</span>` : "";
+      return `<div class="lb-rowline${hl}"><span class="lb-rank">${rank}</span><span class="lb-nm">${nm}</span>${cd}<span class="lb-sc">${r.score}</span></div>`;
+    })
+    .join("");
+}
+
+// One row per card showing that card's record; sorted by best score.
+async function fetchCardRecords() {
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/pure_data_scores?select=nickname,score,card&order=score.desc,created_at.asc&limit=300`,
+    { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } }
+  );
+  if (!res.ok) throw new Error("Could not load (" + res.status + ")");
+  const rows = await res.json();
+  const best = new Map();
+  for (const r of rows) {
+    if (r.card && !best.has(r.card)) best.set(r.card, r); // first seen = highest
+  }
+  return Array.from(best.values());
+}
+
+async function fetchCardBoard(card) {
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/pure_data_scores?select=nickname,score,card&card=eq.${encodeURIComponent(card)}&order=score.desc,created_at.asc&limit=10`,
+    { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } }
+  );
+  if (!res.ok) throw new Error("Could not load (" + res.status + ")");
+  return res.json();
+}
+
+async function showLeaderboardOverlay(highlightNick, mode) {
+  mode = mode || "overall";
   const o = lbBuild(`
     <div class="lb-title">TOP SCORES</div>
+    <div class="lb-tabs">
+      <button class="lb-tab${mode === "overall" ? " on" : ""}" id="tabOverall">OVERALL</button>
+      <button class="lb-tab${mode !== "overall" ? " on" : ""}" id="tabByCard">BY CARD</button>
+    </div>
     <div class="lb-list" id="lbList">loading...</div>
     <div class="lb-btns"><button class="btn primary" id="lbCloseBtn">CLOSE</button></div>
   `);
   o.querySelector("#lbCloseBtn").addEventListener("click", lbClose);
+  o.querySelector("#tabOverall").addEventListener("click", () => showLeaderboardOverlay(highlightNick, "overall"));
+  o.querySelector("#tabByCard").addEventListener("click", () => showLeaderboardOverlay(highlightNick, "bycard"));
   const list = o.querySelector("#lbList");
   try {
-    const rows = await fetchLeaderboard();
-    if (!rows.length) { list.textContent = "No scores yet - be the first!"; return; }
-    list.innerHTML = rows
-      .map((r, i) => {
-        const hl = highlightNick && r.nickname === highlightNick ? " lb-hl" : "";
-        const rank = String(i + 1).padStart(2, "0");
-        const nm = escHtml(String(r.nickname || "").toUpperCase());
-        const cd = r.card ? `<span class="lb-card">${escHtml(r.card)}</span>` : "";
-        return `<div class="lb-rowline${hl}"><span class="lb-rank">${rank}</span><span class="lb-nm">${nm}</span>${cd}<span class="lb-sc">${r.score}</span></div>`;
-      })
-      .join("");
+    if (mode === "overall") {
+      lbRenderRows(list, await fetchLeaderboard(), highlightNick);
+    } else {
+      const recs = await fetchCardRecords();
+      if (!recs.length) { list.textContent = "No card scores yet."; return; }
+      list.innerHTML = recs
+        .map((r) => {
+          const cd = escHtml(r.card);
+          const nm = escHtml(String(r.nickname || "").toUpperCase());
+          return `<div class="lb-rowline lb-cardrow" data-card="${cd}"><span class="lb-card lb-cardbig">${cd}</span><span class="lb-nm">${nm}</span><span class="lb-sc">${r.score}</span><span class="lb-chev">›</span></div>`;
+        })
+        .join("");
+      list.querySelectorAll(".lb-cardrow").forEach((row) => {
+        row.addEventListener("click", () => showCardBoard(row.getAttribute("data-card")));
+      });
+    }
   } catch (e) {
     list.textContent = e.message || "Could not load leaderboard.";
+  }
+}
+
+async function showCardBoard(card) {
+  const o = lbBuild(`
+    <div class="lb-title">CARD ${escHtml(card)}</div>
+    <div class="lb-tabs"><button class="lb-tab" id="backByCard">&lsaquo; all cards</button></div>
+    <div class="lb-list" id="lbList">loading...</div>
+    <div class="lb-btns"><button class="btn primary" id="lbCloseBtn">CLOSE</button></div>
+  `);
+  o.querySelector("#lbCloseBtn").addEventListener("click", lbClose);
+  o.querySelector("#backByCard").addEventListener("click", () => showLeaderboardOverlay(null, "bycard"));
+  const list = o.querySelector("#lbList");
+  try {
+    lbRenderRows(list, await fetchCardBoard(card), null);
+  } catch (e) {
+    list.textContent = e.message || "Could not load.";
   }
 }
 
@@ -1399,6 +1527,26 @@ function runPlinkoMode(ctx, card) {  // Stop any existing game
   }
   if (dropRow && lbBtn.parentNode !== dropRow) dropRow.appendChild(lbBtn);
 
+  // Sound on/off toggle, sits with the score chips
+  let sndBtn = document.getElementById("plinkoSoundBtn");
+  if (!sndBtn) {
+    sndBtn = document.createElement("button");
+    sndBtn.id = "plinkoSoundBtn";
+    sndBtn.className = "snd-btn";
+    sndBtn.type = "button";
+    const syncSnd = () => {
+      sndBtn.textContent = SFX.isEnabled() ? "SFX ON" : "SFX OFF";
+      sndBtn.classList.toggle("off", !SFX.isEnabled());
+    };
+    syncSnd();
+    sndBtn.addEventListener("click", () => {
+      SFX.setEnabled(!SFX.isEnabled());
+      syncSnd();
+    });
+    const scoresEl = document.getElementById("plinkoScores");
+    if (scoresEl) scoresEl.appendChild(sndBtn);
+  }
+
   plinkoDropBtn.addEventListener("click", () => {
     if (st.roundOver) {
       // Reset
@@ -1427,6 +1575,7 @@ function runPlinkoMode(ctx, card) {  // Stop any existing game
       active: true,
       trail: [],
     });
+    SFX.drop();
   });
 
   function draw() {
@@ -1600,6 +1749,7 @@ function runPlinkoMode(ctx, card) {  // Stop any existing game
             ball.vx *= bounceFactor;
             ball.vy *= bounceFactor;
             ball.vx += (Math.random() - 0.5) * 1.2;
+            SFX.peg();
           }
         });
 
@@ -1614,6 +1764,7 @@ function runPlinkoMode(ctx, card) {  // Stop any existing game
           const slotIdx = Math.min(slotCount - 1, Math.max(0, Math.floor(lx / slotWidth)));
           const pts = slotScores[slotIdx];
           st.score += pts;
+          SFX.land(pts);
           // Rest at the landing x; stack on top of any ball already there.
           let landY = slotFloor - ballRadius;
           st.landed.forEach((lb) => {
@@ -1674,7 +1825,8 @@ function runPlinkoMode(ctx, card) {  // Stop any existing game
     const allDone = st.ballsRemaining <= 0 && st.balls.length > 0 && st.balls.every((b) => !b.active);
     if (allDone && !st.roundOver) {
       st.roundOver = true;
-      if (st.score > plinkoHighScore) {
+      const newHigh = st.score > plinkoHighScore && st.score > 0;
+      if (newHigh) {
         plinkoHighScore = st.score;
         plinkoHighCard = plinkoCurrentCard;
       }
@@ -1682,6 +1834,7 @@ function runPlinkoMode(ctx, card) {  // Stop any existing game
       plinkoDropBtn.disabled = false;
       const sb = document.getElementById("plinkoSubmitBtn");
       if (sb) sb.style.display = "inline-block";
+      if (newHigh) SFX.highScore(); else SFX.gameOver();
     }
 
     if (st.roundOver) {
