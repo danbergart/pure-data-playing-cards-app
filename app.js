@@ -24,7 +24,7 @@ const H = CANVAS.height; // 528 * DPR
 
 // Build/version tag - bumped on every handover so the latest deploy can be
 // confirmed past the GitHub Pages cache. Shown subtly at the foot of the app.
-const APP_VERSION = "v4";
+const APP_VERSION = "v5";
 (function () {
   const bt = document.getElementById("buildTag");
   if (bt) bt.textContent = APP_VERSION;
@@ -686,7 +686,7 @@ function showToyButtons() {
   plinkoToggle.setAttribute("aria-checked", "false");
   plinkoToggle.setAttribute("tabindex", "0");
   plinkoToggle.innerHTML =
-    '<span class="toggle-label">Plinko</span>' +
+    '<span class="toggle-label">Game</span>' +
     '<span class="toggle-track"><span class="toggle-knob"></span></span>' +
     '<span class="toggle-state">OFF</span>';
   const togglePlinko = () => {
@@ -996,6 +996,7 @@ function enablePlinkoMode() {
     if (st) st.textContent = "ON";
   }
   startPlinkoFromCurrentCard();
+  showGameIntro();
 }
 
 /* Arcade-style end-of-round scoreboard in the pure-data aesthetic: an opaque
@@ -1205,6 +1206,78 @@ async function showLeaderboardOverlay(highlightNick) {
   }
 }
 
+// Intro shown when Game mode is unlocked via the patch card.
+function showGameIntro() {
+  const o = lbBuild(`
+    <div class="lb-title">GAME MODE ACTIVATED</div>
+    <div class="lb-intro">
+      Drop five balls to rack up a score.<br><br>
+      Any card with pips can act as the playing surface - scan or load one,
+      then use the <b>Game</b> switch to play.
+    </div>
+    <div class="lb-btns"><button class="btn primary" id="lbGo">GOT IT</button></div>
+  `);
+  o.querySelector("#lbGo").addEventListener("click", lbClose);
+}
+
+// ---- Report a bug ----
+async function submitBugReport(message, contact) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/bug_reports`, {
+    method: "POST",
+    headers: {
+      apikey: SUPABASE_KEY,
+      Authorization: `Bearer ${SUPABASE_KEY}`,
+      "Content-Type": "application/json",
+      Prefer: "return=minimal",
+    },
+    body: JSON.stringify({ message, contact: contact || null }),
+  });
+  if (!res.ok) throw new Error("Could not send (" + res.status + ")");
+}
+
+function showBugReport() {
+  const o = lbBuild(`
+    <div class="lb-title">REPORT A BUG</div>
+    <div class="lb-sub">Spotted something broken? Tell us.</div>
+    <textarea id="bugMsg" class="lb-textarea" maxlength="2000" placeholder="What happened?" spellcheck="true"></textarea>
+    <input id="bugContact" class="lb-input2" maxlength="200" placeholder="Email or @handle (optional)" autocomplete="off" />
+    <div class="lb-msg" id="bugErr"></div>
+    <div class="lb-btns">
+      <button class="btn" id="bugCancel">CANCEL</button>
+      <button class="btn primary" id="bugSend">SEND</button>
+    </div>
+  `);
+  const msg = o.querySelector("#bugMsg");
+  const contact = o.querySelector("#bugContact");
+  const err = o.querySelector("#bugErr");
+  msg.focus();
+  o.querySelector("#bugCancel").addEventListener("click", lbClose);
+  const send = o.querySelector("#bugSend");
+  send.addEventListener("click", async () => {
+    const m = msg.value.trim();
+    if (!m) { err.textContent = "Please describe the bug first."; return; }
+    send.disabled = true;
+    err.textContent = "Sending...";
+    try {
+      await submitBugReport(m.slice(0, 2000), contact.value.trim().slice(0, 200));
+      const panel = o.querySelector(".lb-panel");
+      panel.innerHTML =
+        '<div class="lb-title">THANK YOU</div>' +
+        '<div class="lb-intro">Your report was sent. Cheers for helping.</div>' +
+        '<div class="lb-btns"><button class="btn primary" id="bugDone">CLOSE</button></div>';
+      panel.querySelector("#bugDone").addEventListener("click", lbClose);
+    } catch (e) {
+      send.disabled = false;
+      err.textContent = e.message || "Send failed - please try again.";
+    }
+  });
+}
+
+(function () {
+  const bb = document.getElementById("bugBtn");
+  if (bb) bb.addEventListener("click", showBugReport);
+})();
+
 function runPlinkoMode(ctx, card) {  // Stop any existing game
   if (plinkoAnimId) { cancelAnimationFrame(plinkoAnimId); plinkoAnimId = null; }
 
@@ -1264,7 +1337,7 @@ function runPlinkoMode(ctx, card) {  // Stop any existing game
   plinkoState = {
     balls: [],
     landed: [],
-    ballsRemaining: 10,
+    ballsRemaining: 5,
     score: 0,
     popups: [],
     roundOver: false,
@@ -1292,7 +1365,7 @@ function runPlinkoMode(ctx, card) {  // Stop any existing game
   if (dropRow && plinkoDropBtn.parentNode !== dropRow) {
     dropRow.appendChild(plinkoDropBtn);
   }
-  plinkoDropBtn.textContent = `DROP BALL (${st.ballsRemaining})`;
+  plinkoDropBtn.textContent = "DROP BALL";
   plinkoDropBtn.disabled = false;
   plinkoDropBtn.style.display = "inline-block";
 
@@ -1331,11 +1404,11 @@ function runPlinkoMode(ctx, card) {  // Stop any existing game
       // Reset
       st.balls = [];
       st.landed = [];
-      st.ballsRemaining = 10;
+      st.ballsRemaining = 5;
       st.score = 0;
       st.popups = [];
       st.roundOver = false;
-      plinkoDropBtn.textContent = `DROP BALL (${st.ballsRemaining})`;
+      plinkoDropBtn.textContent = "DROP BALL";
       plinkoDropBtn.disabled = false;
       const sb = document.getElementById("plinkoSubmitBtn");
       if (sb) sb.style.display = "none";
@@ -1343,7 +1416,6 @@ function runPlinkoMode(ctx, card) {  // Stop any existing game
     }
     if (st.ballsRemaining <= 0) return;
     st.ballsRemaining--;
-    plinkoDropBtn.textContent = `DROP BALL (${st.ballsRemaining})`;
     if (st.ballsRemaining <= 0) plinkoDropBtn.disabled = true;
 
     // Drop from current launcher position
@@ -1595,6 +1667,8 @@ function runPlinkoMode(ctx, card) {  // Stop any existing game
     const highEl = document.getElementById("plinkoHighVal");
     if (scoreEl) scoreEl.textContent = st.score;
     if (highEl) highEl.textContent = plinkoHighScore;
+    const ballsEl = document.getElementById("plinkoBallsVal");
+    if (ballsEl) ballsEl.textContent = st.ballsRemaining;
 
     // Round over check
     const allDone = st.ballsRemaining <= 0 && st.balls.length > 0 && st.balls.every((b) => !b.active);
