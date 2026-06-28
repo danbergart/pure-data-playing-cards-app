@@ -95,6 +95,10 @@
             <span id="plinkoScoreVal">0</span>
           </div>
           <div class="score-chip">
+            <span class="score-label">BALLS</span>
+            <span id="plinkoBallsVal">5</span>
+          </div>
+          <div class="score-chip">
             <span class="score-label">HIGH</span>
             <span id="plinkoHighVal">0</span>
           </div>
@@ -105,7 +109,7 @@
           <div class="card-empty" aria-hidden="true">
             <div class="ce-brace">{&#8202;}</div>
             <div class="ce-line">awaiting card</div>
-            <div class="ce-sub">scan or paste, then render<span class="ce-cursor"></span></div>
+            <div class="ce-sub">scan or type, then render<span class="ce-cursor"></span></div>
           </div>
           <canvas
             id="cardCanvas"
@@ -120,8 +124,11 @@
       </section>
       </div>
 
-      <!-- Subtle build tag so the latest version can be confirmed past the cache -->
-      <div class="buildtag" id="buildTag"></div>
+      <!-- Footer: report-a-bug + subtle build tag -->
+      <div class="appfoot">
+        <button type="button" id="bugBtn" class="bug-link">Report a bug</button>
+        <div class="buildtag" id="buildTag"></div>
+      </div>
     </div>
 
     <!-- Camera overlay is created dynamically by JS -->
@@ -150,6 +157,11 @@
         label.setAttribute("role", "button");
         label.setAttribute("tabindex", "0");
         label.setAttribute("aria-expanded", "false");
+        // On desktop there's room, so start expanded.
+        if (window.matchMedia && window.matchMedia("(min-width: 880px)").matches) {
+          block.classList.add("open");
+          label.setAttribute("aria-expanded", "true");
+        }
         function toggle() {
           var open = block.classList.toggle("open");
           label.setAttribute("aria-expanded", open ? "true" : "false");
