@@ -279,7 +279,7 @@ body {
 }
 .editor {
   width: 100%;
-  min-height: 116px;
+  min-height: 150px;
   background: var(--panel);
   color: #d8efe0;
   caret-color: var(--green);
@@ -641,6 +641,9 @@ body {
     flex: 0 0 auto;
     margin-top: 0;
   }
+  .work .editor {
+    min-height: 230px;
+  }
 }
 
 /* ============ EMBEDDED (inside Shopify iframe) ============ */
@@ -744,3 +747,61 @@ html.embedded .app {
 .lb-card { color: #9aa79a; }
 .lb-sc { color: #ff8800; font-weight: 700; min-width: 50px; text-align: right; }
 .lb-hl { background: rgba(255, 136, 0, 0.14); border-radius: 4px; }
+
+/* Footer: report-a-bug link + build tag on one line */
+.appfoot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 4px;
+}
+.bug-link {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.35);
+  font-family: inherit;
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+.bug-link:hover { color: #ff8800; text-decoration: underline; }
+.appfoot .buildtag { width: auto; margin-top: 0; }
+
+/* Extra overlay bits: intro copy, textarea, secondary input */
+.lb-intro {
+  color: #d8efe0;
+  font-size: 14px;
+  line-height: 1.6;
+  text-align: center;
+  margin-bottom: 16px;
+}
+.lb-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 110px;
+  background: #000;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: #46e285;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  padding: 10px;
+  border-radius: 8px;
+  resize: vertical;
+}
+.lb-textarea:focus { outline: none; border-color: #46e285; }
+.lb-input2 {
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 10px;
+  background: #000;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: #d8efe0;
+  font-family: inherit;
+  font-size: 13px;
+  padding: 10px;
+  border-radius: 8px;
+}
+.lb-input2:focus { outline: none; border-color: #46e285; }
