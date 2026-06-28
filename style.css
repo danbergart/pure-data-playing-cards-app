@@ -805,3 +805,45 @@ html.embedded .app {
   border-radius: 8px;
 }
 .lb-input2:focus { outline: none; border-color: #46e285; }
+
+/* Sound toggle chip (sits with the score chips) */
+.snd-btn {
+  margin-left: auto;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #9aa79a;
+  font-family: inherit;
+  font-size: 11px;
+  letter-spacing: 1px;
+  padding: 5px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  align-self: center;
+}
+.snd-btn:hover { border-color: #ff8800; color: #ff8800; }
+.snd-btn.off { color: #6f7d6f; opacity: 0.75; }
+
+/* Leaderboard tabs + per-card rows */
+.lb-tabs {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+.lb-tab {
+  background: none;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #9aa79a;
+  font-family: inherit;
+  font-size: 11px;
+  letter-spacing: 1px;
+  padding: 5px 12px;
+  border-radius: 7px;
+  cursor: pointer;
+}
+.lb-tab.on { border-color: #ff8800; color: #ff8800; }
+.lb-tab:hover { color: #fff; }
+.lb-cardrow { cursor: pointer; }
+.lb-cardrow:hover { background: rgba(255, 255, 255, 0.05); border-radius: 4px; }
+.lb-cardbig { color: #46e285; font-weight: 700; min-width: 42px; }
+.lb-chev { color: #6f7d6f; margin-left: 4px; }
