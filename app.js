@@ -24,7 +24,7 @@ const H = CANVAS.height; // 528 * DPR
 
 // Build/version tag - bumped on every handover so the latest deploy can be
 // confirmed past the GitHub Pages cache. Shown subtly at the foot of the app.
-const APP_VERSION = "v7";
+const APP_VERSION = "v8";
 (function () {
   const bt = document.getElementById("buildTag");
   if (bt) bt.textContent = APP_VERSION;
@@ -459,98 +459,119 @@ function drawCredits(ctx) {
    JSON, syntax-highlighted like the other data screens. Distinct from the
    typed-"credits" digital-supporters easter egg above. */
 function drawCreditsCard(ctx, card) {
-  ctx.clearRect(0, 0, W, H);
-  ctx.fillStyle = "#000";
-  ctx.fillRect(0, 0, W, H);
-
-  const orange = "#ff8800";
-  const green = "#46e285";
-  const punc = "#828a82";
-  const mono = (px) => `${Math.round(S(px))}px ui-monospace, monospace`;
+  paintCardBase(ctx);
+  const ink = "#242424";
+  const cx = W / 2;
+  ctx.textAlign = "center";
   ctx.textBaseline = "alphabetic";
-  ctx.textAlign = "left";
 
-  const x0 = S(22);
-  const lh = S(21);
-  let y = S(44);
+  ctx.fillStyle = ink;
+  fitText(ctx, "Credits", cx, S(62), W - S(44), 48, 700);
 
-  // a "key": "value" line with syntax colours
-  function kv(indent, key, val, comma) {
-    let x = x0 + indent;
-    ctx.font = mono(12);
-    ctx.fillStyle = punc; ctx.fillText('"', x, y); x += ctx.measureText('"').width;
-    ctx.fillStyle = orange; ctx.fillText(key, x, y); x += ctx.measureText(key).width;
-    ctx.fillStyle = punc; ctx.fillText('": "', x, y); x += ctx.measureText('": "').width;
-    ctx.fillStyle = green; ctx.fillText(val, x, y); x += ctx.measureText(val).width;
-    ctx.fillStyle = punc; ctx.fillText('"' + (comma ? "," : ""), x, y);
-  }
+  const maker = !card.maker || card.maker === "DanBerg" ? "Dan Berg" : card.maker;
+  fitText(ctx, "made by " + maker, cx, S(98), W - S(60), 26, 400);
+  ctx.fillStyle = "#6a6a6a";
+  fitText(ctx, "First Edition \u00b7 2026", cx, S(124), W - S(60), 20, 400);
 
-  ctx.font = mono(12);
-  ctx.fillStyle = punc; ctx.fillText("{", x0, y); y += lh;
-  kv(S(14), "type", "credits", true); y += lh;
-  kv(S(14), "maker", String(card.maker || "DanBerg"), true); y += lh;
-  kv(S(14), "edition", String(card.edition || "first2026"), true); y += lh;
+  ctx.strokeStyle = "rgba(0,0,0,0.16)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(W * 0.26, S(146));
+  ctx.lineTo(W * 0.74, S(146));
+  ctx.stroke();
 
-  // developers array opener
-  let x = x0 + S(14);
-  ctx.font = mono(12);
-  ctx.fillStyle = punc; ctx.fillText('"', x, y); x += ctx.measureText('"').width;
-  ctx.fillStyle = orange; ctx.fillText("developers", x, y); x += ctx.measureText("developers").width;
-  ctx.fillStyle = punc; ctx.fillText('": [', x, y);
-  y += lh;
+  ctx.fillStyle = "#4a4a4a";
+  fitText(ctx, "with thanks to", cx, S(172), W - S(60), 20, 400);
 
   const devs = Array.isArray(card.developers) ? card.developers : [];
-  const startY = y;
-  const rowH = S(21);
-  const indent = x0 + S(28);
-  ctx.font = mono(11);
-  for (let i = 0; i < devs.length; i += 2) {
-    let xx = indent;
-    const dy = startY + (i / 2) * rowH;
-    for (let k = 0; k < 2 && i + k < devs.length; k++) {
-      const idx = i + k;
-      const d = devs[idx];
-      ctx.fillStyle = punc; ctx.fillText('"', xx, dy); xx += ctx.measureText('"').width;
-      ctx.fillStyle = green; ctx.fillText(d, xx, dy); xx += ctx.measureText(d).width;
-      const tail = '"' + (idx === devs.length - 1 ? "" : ",");
-      ctx.fillStyle = punc; ctx.fillText(tail, xx, dy); xx += ctx.measureText(tail).width;
-      if (k === 0 && i + 1 < devs.length) { ctx.fillText(" ", xx, dy); xx += ctx.measureText(" ").width; }
-    }
+  ctx.fillStyle = ink;
+  const colX = [W * 0.31, W * 0.69];
+  const startY = S(204);
+  const rowH = S(30);
+  for (let i = 0; i < devs.length; i++) {
+    const col = i % 2;
+    const row = Math.floor(i / 2);
+    fitText(ctx, String(devs[i]), colX[col], startY + row * rowH, W * 0.34, 23, 400);
   }
-  y = startY + Math.ceil(devs.length / 2) * rowH;
-  ctx.font = mono(12);
-  ctx.fillStyle = punc; ctx.fillText("]", x0 + S(14), y); y += lh;
-  ctx.fillStyle = punc; ctx.fillText("}", x0, y);
+
+  ensureScriptFont(() => drawCreditsCard(ctx, card));
 }
 
 /* Instructions card - the printed card is plain comment lines, rendered as a
    green code-comment block. */
-function drawInstructions(ctx) {
+// Warm-white "paper" base + hairline frame, used by the meta cards
+// (instructions, credits) so they read as notes, not deck cards.
+function paintCardBase(ctx) {
   ctx.clearRect(0, 0, W, H);
-  ctx.fillStyle = "#000";
+  ctx.fillStyle = "#fbfaf7";
   ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = "rgba(0,0,0,0.12)";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(S(6) + 0.5, S(6) + 0.5, W - S(12) - 1, H - S(12) - 1);
+}
 
-  const white = "#ffffff";
-  const mono = (px) => `${Math.round(S(px))}px ui-monospace, monospace`;
+// Cursive font loads asynchronously; redraw once it's ready.
+let scriptFontReady = false;
+function scriptFont(px, weight) {
+  return `${weight || 400} ${Math.round(S(px))}px "Dancing Script", "Brush Script MT", "Snell Roundhand", cursive`;
+}
+function ensureScriptFont(redraw) {
+  if (scriptFontReady) return;
+  try {
+    if (document.fonts && document.fonts.load) {
+      Promise.all([
+        document.fonts.load('700 40px "Dancing Script"'),
+        document.fonts.load('400 24px "Dancing Script"'),
+      ])
+        .then(() => {
+          if (!scriptFontReady) {
+            scriptFontReady = true;
+            if (redraw) redraw();
+          }
+        })
+        .catch(() => {});
+    }
+  } catch (e) {}
+}
+
+// Draw centred text, shrinking the size until it fits maxW (so no overflow
+// whatever cursive font ends up loading).
+function fitText(ctx, text, cx, y, maxW, basePx, weight) {
+  let px = basePx;
+  ctx.font = scriptFont(px, weight);
+  while (ctx.measureText(text).width > maxW && px > 9) {
+    px -= 1;
+    ctx.font = scriptFont(px, weight);
+  }
+  ctx.fillText(text, cx, y);
+}
+
+function drawInstructions(ctx) {
+  paintCardBase(ctx);
+  const ink = "#242424";
+  const cx = W / 2;
+  const maxW = W - S(44);
+  ctx.textAlign = "center";
   ctx.textBaseline = "alphabetic";
-  ctx.textAlign = "left";
 
-  const lines = [
-    "// Pure Data Playing Cards",
-    "// Edition 1",
-    "",
-    "// To render cards visit:",
-    "// danberg.art/puredata",
-  ];
-  ctx.fillStyle = white;
-  ctx.font = mono(13);
-  const x0 = S(24);
-  const lh = S(24);
-  let y = H / 2 - (lines.length * lh) / 2;
-  lines.forEach((ln) => {
-    if (ln) ctx.fillText(ln, x0, y);
-    y += lh;
-  });
+  ctx.fillStyle = ink;
+  fitText(ctx, "Pure Data", cx, H * 0.32, maxW, 50, 700);
+  fitText(ctx, "Playing Cards", cx, H * 0.32 + S(36), maxW, 32, 400);
+
+  ctx.strokeStyle = "rgba(0,0,0,0.18)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(W * 0.32, H * 0.5);
+  ctx.lineTo(W * 0.68, H * 0.5);
+  ctx.stroke();
+
+  fitText(ctx, "First Edition", cx, H * 0.59, maxW, 26, 400);
+  ctx.fillStyle = "#5a5a5a";
+  fitText(ctx, "render your cards at", cx, H * 0.67, maxW, 22, 400);
+  ctx.fillStyle = ink;
+  fitText(ctx, "danberg.art/puredata", cx, H * 0.725, maxW, 26, 700);
+
+  ensureScriptFont(() => drawInstructions(ctx));
 }
 
 /* ========= SYSTEM PATCH ========= */
@@ -1401,9 +1422,28 @@ function showBugReport() {
   });
 }
 
+// Load the digital credits card as if it were scanned (another way in,
+// besides typing "credits"). Exits Game mode first if it's on.
+function loadCreditsCard() {
+  if (plinkoMode) {
+    plinkoMode = false;
+    const tgl = document.getElementById("plinkoToggle");
+    if (tgl) {
+      tgl.classList.remove("on");
+      tgl.setAttribute("aria-checked", "false");
+      const st = tgl.querySelector(".toggle-state");
+      if (st) st.textContent = "OFF";
+    }
+    stopPlinko();
+  }
+  renderCard(JSON.stringify(CREDITS_CARD, null, 2));
+}
+
 (function () {
   const bb = document.getElementById("bugBtn");
   if (bb) bb.addEventListener("click", showBugReport);
+  const cb = document.getElementById("creditsBtn");
+  if (cb) cb.addEventListener("click", loadCreditsCard);
 })();
 
 function runPlinkoMode(ctx, card) {  // Stop any existing game
