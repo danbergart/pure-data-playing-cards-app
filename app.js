@@ -24,7 +24,7 @@ const H = CANVAS.height; // 528 * DPR
 
 // Build/version tag - bumped on every handover so the latest deploy can be
 // confirmed past the GitHub Pages cache. Shown subtly at the foot of the app.
-const APP_VERSION = "v6";
+const APP_VERSION = "v7";
 (function () {
   const bt = document.getElementById("buildTag");
   if (bt) bt.textContent = APP_VERSION;
@@ -1850,6 +1850,9 @@ function runPlinkoMode(ctx, card) {  // Stop any existing game
 /* Main render */
 function renderCard(json) {
   const card = JSON.parse(json);
+  // Always show what we actually rendered in the black code box, so the card
+  // it snapped to is visible (joker, patch, back, credits, number/face alike).
+  try { ta.value = JSON.stringify(card, null, 2); } catch (e) {}
   const ctx = CANVAS.getContext("2d");
   ctx.clearRect(0, 0, W, H);
   ctx.fillStyle = "#fff";
@@ -2242,7 +2245,7 @@ function buildOverlay() {
       stopCameraOverlay();
     } catch (e) {
       console.error("Capture/OCR error:", e);
-      alert("Capture failed: " + (e && e.message ? e.message : "unknown error"));
+      alert(e && e.message ? e.message : "Scan failed - please try again.");
       // leave the camera open so they can retry without reopening
     }
   });
@@ -2403,8 +2406,9 @@ function trySnapToDeck(text) {
     return JSON.stringify({ rank: rankOut, suit, type }, null, 2);
   }
 
-  // Couldn't confidently snap → return cleaned text, user can edit
-  return JSON.stringify(safeJsonGuess(text), null, 2);
+  // Nothing confidently matched a real card → signal "no detection" so the
+  // caller can show an error instead of inventing a card.
+  return null;
 }
 
 function safeJsonGuess(text) {
@@ -2443,7 +2447,18 @@ async function processImageBase64(b64) {
   } catch {
     throw new Error("OCR service sent an unexpected (non-JSON) response");
   }
-  const snapped = trySnapToDeck(normalizeScanned(String(data.text || "")));
+  const text = normalizeScanned(String(data.text || ""));
+  if (!text.trim()) {
+    throw new Error(
+      "No text detected. Line up a Pure Data card in the frame and try again."
+    );
+  }
+  const snapped = trySnapToDeck(text);
+  if (!snapped) {
+    throw new Error(
+      "No card detected. Line up a Pure Data card in the frame and try again."
+    );
+  }
 
   // Put into editor
   ta.value = snapped;
