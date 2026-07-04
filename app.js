@@ -24,7 +24,7 @@ const H = CANVAS.height; // 528 * DPR
 
 // Build/version tag - bumped on every handover so the latest deploy can be
 // confirmed past the GitHub Pages cache. Shown subtly at the foot of the app.
-const APP_VERSION = "v8";
+const APP_VERSION = "v9";
 (function () {
   const bt = document.getElementById("buildTag");
   if (bt) bt.textContent = APP_VERSION;
@@ -2253,6 +2253,7 @@ function buildOverlay() {
   overlayEl.innerHTML = `
     <div id="camBox">
       <video id="video" playsinline autoplay muted></video>
+      <div id="camStatus">Starting camera…</div>
       <div id="camButtons">
         <button id="flipBtn" class="btn">Flip Camera</button>
         <button id="captureBtn" class="btn primary">Capture</button>
@@ -2293,15 +2294,30 @@ function buildOverlay() {
   return overlayEl;
 }
 
+function setCamStatus(msg) {
+  const el = overlayEl && overlayEl.querySelector("#camStatus");
+  if (!el) return;
+  el.textContent = msg || "";
+  el.style.display = msg ? "flex" : "none";
+}
+
+let camOpening = false;
 async function openCamera() {
-  buildOverlay();
-  overlayEl.style.display = "flex";
-  // Bring the overlay into view: scroll our own document to the top, and ask
-  // the host page (if embedded) to scroll the iframe to the top too, so the
-  // camera popup appears high on screen instead of below the fold.
-  try { window.scrollTo(0, 0); } catch {}
-  try { parent?.postMessage?.({ type: "purecode:camera-open" }, "*"); } catch {}
-  await startStream();
+  if (camOpening) return; // ignore a rapid second click while opening
+  camOpening = true;
+  try {
+    buildOverlay();
+    overlayEl.style.display = "flex";
+    setCamStatus("Starting camera…");
+    // Bring the overlay into view: scroll our own document to the top, and ask
+    // the host page (if embedded) to scroll the iframe to the top too, so the
+    // camera popup appears high on screen instead of below the fold.
+    try { window.scrollTo(0, 0); } catch {}
+    try { parent?.postMessage?.({ type: "purecode:camera-open" }, "*"); } catch {}
+    await startStream();
+  } finally {
+    camOpening = false;
+  }
 }
 function stopCameraOverlay() {
   overlayEl.style.display = "none";
@@ -2328,18 +2344,33 @@ async function startStream() {
     stream.getTracks().forEach((t) => t.stop());
     stream = null;
   }
+  setCamStatus("Starting camera…");
 
   const constraints = { video: { facingMode: facing } };
   try {
     stream = await navigator.mediaDevices.getUserMedia(constraints);
   } catch (e) {
     // Safari sometimes needs plain true
-    stream = await navigator.mediaDevices.getUserMedia({
-      video: true,
-      audio: false,
-    });
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: false,
+      });
+    } catch (e2) {
+      setCamStatus("Can't reach the camera - check permissions, then Flip or reopen.");
+      return;
+    }
   }
   videoEl.srcObject = stream;
+  // Explicitly kick playback: some browsers (notably iOS Safari) won't start
+  // the video from srcObject alone, which is what made it feel like the first
+  // tap did nothing.
+  try { await videoEl.play(); } catch (e) {}
+  // Clear the "Starting…" overlay as soon as real frames arrive.
+  const clear = () => setCamStatus("");
+  videoEl.addEventListener("playing", clear, { once: true });
+  videoEl.addEventListener("loadeddata", clear, { once: true });
+  setTimeout(clear, 2500);
 }
 
 /* ========= OCR + SNAPPING ========= */
@@ -2446,8 +2477,25 @@ function trySnapToDeck(text) {
     return JSON.stringify({ rank: rankOut, suit, type }, null, 2);
   }
 
-  // Nothing confidently matched a real card → signal "no detection" so the
-  // caller can show an error instead of inventing a card.
+  // Partially obscured card: if there's a genuine card signal (the key names
+  // "rank"/"suit", or a quoted rank/suit value), make a best guess and fill in
+  // whatever couldn't be read, rather than failing outright.
+  const rankQuoted = ranks.find((r) => t.includes(`"${r}"`));
+  const suitQuoted = suits.find((s) => t.includes(`"${s}"`));
+  const looksLikeCard =
+    t.includes("rank") || t.includes("suit") || !!rankQuoted || !!suitQuoted;
+  if (looksLikeCard) {
+    const r = rank || rankQuoted || "ace";
+    const s = suit || suitQuoted || "spades";
+    const isFace = ["jack", "queen", "king"].includes(r);
+    return JSON.stringify(
+      { rank: r === "ace" ? "ace" : r, suit: s, type: isFace ? "face" : "number" },
+      null,
+      2
+    );
+  }
+
+  // No card signal at all (blank frame, a face, random text) → no detection.
   return null;
 }
 
@@ -2466,6 +2514,15 @@ function safeJsonGuess(text) {
     const type = isFace ? "face" : "number";
     return { rank, suit, type };
   }
+}
+
+// Expand the manual-input box (it's collapsed by default on mobile).
+function openEditorBox() {
+  const eb = document.querySelector(".editor-block");
+  if (!eb) return;
+  eb.classList.add("open");
+  const lbl = eb.querySelector(".editor-label");
+  if (lbl) lbl.setAttribute("aria-expanded", "true");
 }
 
 async function processImageBase64(b64) {
@@ -2500,8 +2557,10 @@ async function processImageBase64(b64) {
     );
   }
 
-  // Put into editor
+  // Put into editor, and open the manual-input box (collapsed by default on
+  // mobile) so the scanned code is actually visible.
   ta.value = snapped;
+  openEditorBox();
 
   // Auto-render straight away - no need to click Render.
   try {
