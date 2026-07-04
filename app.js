@@ -24,7 +24,7 @@ const H = CANVAS.height; // 528 * DPR
 
 // Build/version tag - bumped on every handover so the latest deploy can be
 // confirmed past the GitHub Pages cache. Shown subtly at the foot of the app.
-const APP_VERSION = "v11";
+const APP_VERSION = "v13";
 (function () {
   const bt = document.getElementById("buildTag");
   if (bt) bt.textContent = APP_VERSION;
@@ -2300,12 +2300,19 @@ function buildOverlay() {
         return;
       }
       const b64 = snapshotToBase64();
+      // Reassure them something's happening while the OCR round-trip runs -
+      // otherwise the frozen frame just sits there with no sign of life.
+      captureBtn.disabled = true;
+      setCamStatus("Reading card…");
       await processImageBase64(b64);
       stopCameraOverlay();
     } catch (e) {
       console.error("Capture/OCR error:", e);
       alert(e && e.message ? e.message : "Scan failed - please try again.");
       // leave the camera open so they can retry without reopening
+    } finally {
+      captureBtn.disabled = false;
+      setCamStatus("");
     }
   });
 
@@ -2556,13 +2563,13 @@ async function processImageBase64(b64) {
   const text = normalizeScanned(String(data.text || ""));
   if (!text.trim()) {
     throw new Error(
-      "No text detected. Line up a Pure Data card in the frame and try again."
+      "Couldn't read anything there - line up a Pure Data card in the frame and try again."
     );
   }
   const snapped = trySnapToDeck(text);
   if (!snapped) {
     throw new Error(
-      "No card detected. Line up a Pure Data card in the frame and try again."
+      "Couldn't find a card there - line up a Pure Data card in the frame and try again."
     );
   }
 
