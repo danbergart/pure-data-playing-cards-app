@@ -24,7 +24,7 @@ const H = CANVAS.height; // 528 * DPR
 
 // Build/version tag - bumped on every handover so the latest deploy can be
 // confirmed past the GitHub Pages cache. Shown subtly at the foot of the app.
-const APP_VERSION = "v9";
+const APP_VERSION = "v11";
 (function () {
   const bt = document.getElementById("buildTag");
   if (bt) bt.textContent = APP_VERSION;
@@ -245,6 +245,19 @@ function loadFaceImage(rank, suit) {
     img.src = FACE_FILE(rank, suit);
   });
 }
+
+// Preload all 12 face-card SVGs as soon as the app loads (small files) so
+// pressing Render on a jack/queen/king never has to wait on a network fetch -
+// that wait, with the canvas already blanked to white, was the "did it work?"
+// pause. Jokers are photos (~650-700KB each) so left on-demand, just cached
+// above once loaded, rather than forced on every visitor.
+(function preloadFaceImages() {
+  ["jack", "queen", "king"].forEach((r) => {
+    ["clubs", "diamonds", "hearts", "spades"].forEach((s) => {
+      loadFaceImage(r, s).catch(() => {});
+    });
+  });
+})();
 
 /* Examples (file removed, per your decision) */
 const EXAMPLES = {
@@ -2032,13 +2045,18 @@ function drawFace(ctx, rank, suit) {
 }
 
 // Try each URL in turn; resolve with the first image that loads.
+// Cached by the url list so a repeat render of the same joker doesn't
+// re-run the png-then-jpg probe over the network every time.
+const anyImageCache = {};
 function loadAnyImage(urls) {
+  const key = urls.join("|");
+  if (anyImageCache[key]) return Promise.resolve(anyImageCache[key]);
   return new Promise((resolve, reject) => {
     let i = 0;
     const tryNext = () => {
       if (i >= urls.length) return reject(new Error("no image"));
       const img = new Image();
-      img.onload = () => resolve(img);
+      img.onload = () => { anyImageCache[key] = img; resolve(img); };
       img.onerror = () => { i++; tryNext(); };
       img.src = urls[i];
     };
@@ -2516,15 +2534,6 @@ function safeJsonGuess(text) {
   }
 }
 
-// Expand the manual-input box (it's collapsed by default on mobile).
-function openEditorBox() {
-  const eb = document.querySelector(".editor-block");
-  if (!eb) return;
-  eb.classList.add("open");
-  const lbl = eb.querySelector(".editor-label");
-  if (lbl) lbl.setAttribute("aria-expanded", "true");
-}
-
 async function processImageBase64(b64) {
   // Send to Vision backend
   let res;
@@ -2557,10 +2566,10 @@ async function processImageBase64(b64) {
     );
   }
 
-  // Put into editor, and open the manual-input box (collapsed by default on
-  // mobile) so the scanned code is actually visible.
+  // Put the scanned code into the editor. On desktop the box is already open
+  // (see index.html) so it's seen instantly; on mobile it stays collapsed -
+  // the code is there, correct, whenever they choose to expand it.
   ta.value = snapped;
-  openEditorBox();
 
   // Auto-render straight away - no need to click Render.
   try {
