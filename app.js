@@ -24,7 +24,7 @@ const H = CANVAS.height; // 528 * DPR
 
 // Build/version tag - bumped on every handover so the latest deploy can be
 // confirmed past the GitHub Pages cache. Shown subtly at the foot of the app.
-const APP_VERSION = "v16";
+const APP_VERSION = "v17";
 (function () {
   const bt = document.getElementById("buildTag");
   if (bt) bt.textContent = APP_VERSION;
@@ -395,7 +395,7 @@ const DIGITAL_SUPPORTERS = [
   "Lordviper33", "David J Scott", "AlNapp", "RhysWynne", "Paul Browning",
   "Pat Reaney", "DavidAult", "Iris Aurora", "JustGini", "Narrative Engine",
   "SootMonkey", "Jetarullah", "FukaclawRyu", "Stephen Short", "Sarah S.",
-  "Jsbaseplayer", "John L", "Sarah 'All At Once' Collins", "ShaunLake",
+  "Jsbaseplayer", "John L", "Sarah Collins", "ShaunLake",
   "JelleJT", "Mark Alford", "Callmesalticidae",
 ];
 
