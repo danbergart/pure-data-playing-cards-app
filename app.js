@@ -24,7 +24,7 @@ const H = CANVAS.height; // 528 * DPR
 
 // Build/version tag - bumped on every handover so the latest deploy can be
 // confirmed past the GitHub Pages cache. Shown subtly at the foot of the app.
-const APP_VERSION = "v13";
+const APP_VERSION = "v14";
 (function () {
   const bt = document.getElementById("buildTag");
   if (bt) bt.textContent = APP_VERSION;
@@ -1449,7 +1449,11 @@ function loadCreditsCard() {
     }
     stopPlinko();
   }
-  renderCard(JSON.stringify(CREDITS_CARD, null, 2));
+  // Same digital-supporters easter egg as typing "credits" in the box - not
+  // the printed developer-credits card (that's the physical card's own JSON,
+  // shown when the physical card itself is scanned).
+  ta.value = "credits";
+  drawCredits(CANVAS.getContext("2d"));
 }
 
 (function () {
