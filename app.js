@@ -24,7 +24,7 @@ const H = CANVAS.height; // 528 * DPR
 
 // Build/version tag - bumped on every handover so the latest deploy can be
 // confirmed past the GitHub Pages cache. Shown subtly at the foot of the app.
-const APP_VERSION = "v14";
+const APP_VERSION = "v16";
 (function () {
   const bt = document.getElementById("buildTag");
   if (bt) bt.textContent = APP_VERSION;
@@ -390,11 +390,13 @@ function drawPooPipsCentered(ctx, layout, color, pipSize) {
 
 /* ========= CREDITS ========= */
 const DIGITAL_SUPPORTERS = [
-  "Oly Ritchie", "Fabian Wiberg", "Uglen", "Caroline F.", "Thalie",
-  "GodVars", "Rayvn M.", "Lordviper33", "David J Scott", "AlNapp",
-  "RhysWynne", "Paul Browning", "Pat Reaney", "DavidAult", "Iris Aurora",
-  "JustGini", "SootMonkey", "Jetarullah", "FukaclawRyu", "Stephen Short",
-  "Jsbaseplayer", "John L", "JelleJT", "Mark Alford", "Callmesalticidae",
+  "Oly Ritchie", "Raphael", "Fabian Wiberg", "Uglen", "PauliNaumi",
+  "Caroline F.", "Thalie", "GodVars", "Rayvn M.", "Russ of Veblen",
+  "Lordviper33", "David J Scott", "AlNapp", "RhysWynne", "Paul Browning",
+  "Pat Reaney", "DavidAult", "Iris Aurora", "JustGini", "Narrative Engine",
+  "SootMonkey", "Jetarullah", "FukaclawRyu", "Stephen Short", "Sarah S.",
+  "Jsbaseplayer", "John L", "Sarah 'All At Once' Collins", "ShaunLake",
+  "JelleJT", "Mark Alford", "Callmesalticidae",
 ];
 
 function drawCredits(ctx) {
@@ -421,51 +423,62 @@ function drawCredits(ctx) {
   ctx.font = mono(9);
   ctx.fillText('"digital_supporters": [', S(20), S(58));
 
-  // names in two columns
-  ctx.font = mono(9);
+  // names in two columns. Nominal coords are a 240-wide grid; the row height
+  // is compressed so however many names there are still leave room for the
+  // face-art block + footer below, and any single over-long name is shrunk to
+  // fit its own column rather than shrinking the whole list.
   const names = DIGITAL_SUPPORTERS;
   const half = Math.ceil(names.length / 2);
-  const colX = [S(26), S(126)];
-  const startY = S(76);
-  const rowH = S(13);
+  const colX = [22, 122];            // nominal x of each column
+  const colW = [94, 106];            // usable nominal width per column
+  const startY = 74;                 // nominal y of first name row
+  const namesBudgetBottom = 250;     // keep the list clear of the face-art block
+  const rowH = Math.min(13, (namesBudgetBottom - startY) / Math.max(1, half - 1));
+  const baseFont = Math.min(9, rowH * 0.8);
   names.forEach((n, i) => {
     const col = i < half ? 0 : 1;
     const row = col === 0 ? i : i - half;
-    const x = colX[col];
-    const y = startY + row * rowH;
+    const x = S(colX[col]);
+    const y = S(startY + row * rowH);
     const txt = `"${n}"`;
+    // shrink just this entry if it would overflow its column
+    let fp = baseFont;
+    ctx.font = mono(fp);
+    while (ctx.measureText(txt + ",").width > S(colW[col]) && fp > 4) {
+      fp -= 0.5;
+      ctx.font = mono(fp);
+    }
     ctx.fillStyle = green;
     ctx.fillText(txt, x, y);
     ctx.fillStyle = punc;
     ctx.fillText(",", x + ctx.measureText(txt).width, y);
   });
 
-  let y = startY + half * rowH;
+  let y = startY + half * rowH;      // nominal
   ctx.fillStyle = dim;
   ctx.font = mono(9);
-  ctx.fillText("]", S(20), y);
+  ctx.fillText("]", S(20), S(y));
 
   // face card art credit (compact)
-  y += S(26);
+  y += 20;
   ctx.fillStyle = dim;
   ctx.font = mono(9);
-  ctx.fillText('"face_card_art": [', S(20), y);
-  y += S(13);
+  ctx.fillText('"face_card_art": [', S(20), S(y));
+  y += 12;
   ctx.fillStyle = green;
-  ctx.fillText('  "Adrian Kennard (RevK)",', S(20), y);
-  y += S(12);
-  ctx.fillText('  "CC0 Public Domain",', S(20), y);
-  y += S(12);
-  ctx.fillText('  "me.uk/cards"', S(20), y);
-  y += S(13);
+  ctx.fillText('  "Adrian Kennard (RevK)",', S(20), S(y));
+  y += 11;
+  ctx.fillText('  "me.uk/cards"', S(20), S(y));
+  y += 12;
   ctx.fillStyle = dim;
-  ctx.fillText("]", S(20), y);
+  ctx.fillText("]", S(20), S(y));
 
-  // footer
+  // footer follows the content so it can never collide with it
+  y += 22;
   ctx.fillStyle = dim;
   ctx.font = mono(9);
   ctx.textAlign = "center";
-  ctx.fillText("// Dan Berg 2026", W / 2, H - S(18));
+  ctx.fillText("// Dan Berg 2026", W / 2, S(y));
 }
 
 /* Physical credits card (type:"credits") - rendered as-is: the card's own
